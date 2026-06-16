@@ -9,10 +9,12 @@ class TapasWindow(Adw.ApplicationWindow):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.set_title("Tapas")
-        self.set_default_size(500, 600)
+        self.set_default_size(600, 650)
 
         self.timer = TimerLogic()
         self.timer.on_tick_callback = self._on_timer_tick
+        self.timer.on_state_change_callback = self._on_state_change
+        self.timer.on_finish_callback = self._on_timer_finish
         
         # Main layout using Adw.ToolbarView
         self.toolbar_view = Adw.ToolbarView()
@@ -32,49 +34,80 @@ class TapasWindow(Adw.ApplicationWindow):
         # Build the pages
         self._build_pomodoro_page()
         
-        # Setup keyboard shortcuts (Spacebar to play/pause)
-        self._setup_key_controller()
+        # Initialize UI state
+        self._update_time_display()
 
     def _build_pomodoro_page(self):
-        page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=48)
         page_box.set_valign(Gtk.Align.CENTER)
         page_box.set_halign(Gtk.Align.CENTER)
-
-        # The big clock display
-        self.time_label = Gtk.Label(label="25:00")
-        self.time_label.add_css_class("title-1")
-        # We can make it massive using custom CSS later, for now we use title-1
-        self.time_label.set_margin_bottom(24)
-
-        # The action buttons (hidden by default)
-        self.action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        self.action_box.set_halign(Gtk.Align.CENTER)
-        self.action_box.set_visible(False)
-
-        save_btn = Gtk.Button(label="Save Session")
-        save_btn.add_css_class("suggested-action")
-        save_btn.add_css_class("pill")
+        page_box.set_margin_start(64)
+        page_box.set_margin_end(64)
+        page_box.set_margin_top(48)
+        page_box.set_margin_bottom(48)
         
-        save_exit_btn = Gtk.Button(label="Save and Exit")
-        save_exit_btn.add_css_class("destructive-action")
-        save_exit_btn.add_css_class("pill")
+        # 1. Project Dropdown
+        self.project_dropdown = Gtk.DropDown.new_from_strings(["DSA / Project", "Web Development", "Reading"])
+        self.project_dropdown.set_halign(Gtk.Align.CENTER)
+        self.project_dropdown.add_css_class("pill")
+        page_box.append(self.project_dropdown)
 
-        self.action_box.append(save_btn)
-        self.action_box.append(save_exit_btn)
+        # 2. Progress Bar and Time Labels
+        progress_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        
+        self.progress_bar = Gtk.ProgressBar()
+        self.progress_bar.set_fraction(0.0)
+        self.progress_bar.set_size_request(350, -1)
+        self.progress_bar.add_css_class("focus-state") # Default state
+        progress_box.append(self.progress_bar)
+        
+        # Time Labels
+        time_labels_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        
+        self.elapsed_label = Gtk.Label(label="00:00")
+        self.elapsed_label.add_css_class("title-1")
+        
+        spacer = Gtk.Box()
+        spacer.set_hexpand(True)
+        
+        self.total_label = Gtk.Label(label="25:00")
+        self.total_label.add_css_class("title-1")
+        
+        time_labels_box.append(self.elapsed_label)
+        time_labels_box.append(spacer)
+        time_labels_box.append(self.total_label)
+        
+        progress_box.append(time_labels_box)
+        page_box.append(progress_box)
 
-        # Instruction label
-        self.instruction_label = Gtk.Label(label="Press Space to Start")
-        self.instruction_label.add_css_class("dim-label")
-
-        page_box.append(self.time_label)
+        # 3. Action Buttons
+        self.action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=32)
+        self.action_box.set_halign(Gtk.Align.CENTER)
+        
+        self.restart_btn = Gtk.Button(label="Restart")
+        self.restart_btn.add_css_class("action-pill")
+        self.restart_btn.connect("clicked", self._on_restart_clicked)
+        
+        self.play_pause_btn = Gtk.Button()
+        self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
+        self.play_pause_btn.add_css_class("play-circular")
+        self.play_pause_btn.connect("clicked", self._on_play_pause_clicked)
+        
+        self.break_btn = Gtk.Button(label="Break")
+        self.break_btn.add_css_class("action-pill")
+        self.break_btn.connect("clicked", self._on_break_clicked)
+        
+        self.action_box.append(self.restart_btn)
+        self.action_box.append(self.play_pause_btn)
+        self.action_box.append(self.break_btn)
+        
         page_box.append(self.action_box)
-        page_box.append(self.instruction_label)
 
         self.view_stack.add_titled_with_icon(
             page_box, "pomodoro", "Pomodoro", "alarm-symbolic"
         )
 
-        # Placeholders for the other tabs
+        # Placeholders
         self.view_stack.add_titled_with_icon(
             Gtk.Label(label="Stopwatch Timer coming soon..."), "timer", "Timer", "document-open-recent-symbolic"
         )
@@ -82,28 +115,81 @@ class TapasWindow(Adw.ApplicationWindow):
             Gtk.Label(label="Stats coming soon..."), "stats", "Stats", "utilities-system-monitor-symbolic"
         )
 
-    def _setup_key_controller(self):
-        key_ctrl = Gtk.EventControllerKey()
-        key_ctrl.connect("key-pressed", self._on_key_pressed)
-        self.add_controller(key_ctrl)
+    # --- Button Callbacks ---
+    
+    def _on_play_pause_clicked(self, button):
+        if self.timer.is_running:
+            self.timer.pause()
+            self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
+            self.restart_btn.set_sensitive(True)
+            self.break_btn.set_sensitive(True)
+        else:
+            self.timer.start()
+            self.play_pause_btn.set_icon_name("media-playback-pause-symbolic")
+            self.restart_btn.set_sensitive(False)
+            self.break_btn.set_sensitive(False)
 
-    def _on_key_pressed(self, controller, keyval, keycode, state):
-        if keyval == Gdk.KEY_space:
-            if self.timer.is_running:
-                # Pause and show options
-                self.timer.pause()
-                self.action_box.set_visible(True)
-                self.instruction_label.set_label("Press Space to Resume")
-            else:
-                # Start/Resume and hide options
-                self.timer.start()
-                self.action_box.set_visible(False)
-                self.instruction_label.set_label("Focusing... (Press Space to Pause)")
-            return True # Event handled
-        return False
+    def _on_restart_clicked(self, button):
+        self.timer.reset()
+        self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
+        self.restart_btn.set_sensitive(True)
+        self.break_btn.set_sensitive(True)
+        self._update_time_display()
+
+    def _on_break_clicked(self, button):
+        self.timer.pause()
+        self.timer.next_state()
+        self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
+        self.restart_btn.set_sensitive(True)
+        self.break_btn.set_sensitive(True)
+        self._update_time_display()
+
+    # --- Timer Callbacks ---
+
+    def _update_time_display(self):
+        time_left = self.timer.time_left
+        total_time = self.timer.durations[self.timer.state] * 60
+        elapsed_time = total_time - time_left
+        
+        el_min = elapsed_time // 60
+        el_sec = elapsed_time % 60
+        self.elapsed_label.set_label(f"{el_min:02d}:{el_sec:02d}")
+        
+        tot_min = total_time // 60
+        tot_sec = total_time % 60
+        self.total_label.set_label(f"{tot_min:02d}:{tot_sec:02d}")
+        
+        if total_time > 0:
+            self.progress_bar.set_fraction(elapsed_time / total_time)
+        else:
+            self.progress_bar.set_fraction(0.0)
 
     def _on_timer_tick(self, time_left):
-        minutes = time_left // 60
-        seconds = time_left % 60
-        self.time_label.set_label(f"{minutes:02d}:{seconds:02d}")
+        self._update_time_display()
 
+    def _on_state_change(self, new_state):
+        # Update progress bar colors
+        self.progress_bar.remove_css_class("focus-state")
+        self.progress_bar.remove_css_class("short-break-state")
+        self.progress_bar.remove_css_class("long-break-state")
+        
+        if new_state == "Focus":
+            self.progress_bar.add_css_class("focus-state")
+            self.break_btn.set_label("Break")
+        elif new_state == "Short Break":
+            self.progress_bar.add_css_class("short-break-state")
+            self.break_btn.set_label("Pomodoro")
+        elif new_state == "Long Break":
+            self.progress_bar.add_css_class("long-break-state")
+            self.break_btn.set_label("Pomodoro")
+
+        self._update_time_display()
+        self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
+        self.restart_btn.set_sensitive(True)
+        self.break_btn.set_sensitive(True)
+
+    def _on_timer_finish(self):
+        self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
+        self.restart_btn.set_sensitive(True)
+        self.break_btn.set_sensitive(True)
+        self._update_time_display()

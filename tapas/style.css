@@ -1,0 +1,58 @@
+/* Custom Tapas Styling */
+
+/* Make the progress bar extra bold and visually appealing */
+progressbar > trough {
+    min-height: 36px;
+    border-radius: 18px;
+    background-color: mix(@theme_fg_color, @theme_bg_color, 0.9);
+    transition: background-color 0.5s ease;
+}
+
+progressbar > trough > progress {
+    min-height: 36px;
+    border-radius: 18px;
+    transition: background-color 0.5s ease;
+}
+
+/* Accent colors based on timer state */
+progressbar.focus-state > trough > progress {
+    background-color: @accent_bg_color; /* Standard blue or user's accent */
+}
+
+progressbar.short-break-state > trough > progress,
+progressbar.long-break-state > trough > progress {
+    background-color: @success_color; /* Beautiful GNOME green */
+}
+
+/* Action Buttons Custom Sizing */
+button.action-pill {
+    font-size: 14px;
+    font-weight: 700;
+    min-width: 100px;
+    min-height: 40px; /* Thinner buttons as requested */
+    border-radius: 20px; 
+    background-color: mix(@theme_fg_color, @theme_bg_color, 0.9);
+    color: @theme_fg_color;
+    transition: all 0.3s ease; /* Smooth fade when disabled/enabled */
+}
+
+button.action-pill:hover {
+    background-color: mix(@theme_fg_color, @theme_bg_color, 0.8);
+}
+
+button.play-circular {
+    min-width: 64px;
+    min-height: 64px;
+    border-radius: 32px;
+    background-color: #555555; /* Dark grey like the mockup */
+    color: white;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+button.play-circular:hover {
+    background-color: #666666;
+}
+
+button.play-circular:active {
+    transform: scale(0.95); /* Little pop animation on click */
+}
