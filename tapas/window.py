@@ -2,7 +2,7 @@ import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 
-from gi.repository import Gtk, Adw, Gdk
+from gi.repository import Gtk, Adw, Gdk, Gio
 from tapas.timer import TimerLogic
 
 class TapasWindow(Adw.ApplicationWindow):
@@ -31,11 +31,25 @@ class TapasWindow(Adw.ApplicationWindow):
         self.view_switcher_title = Adw.ViewSwitcherTitle(stack=self.view_stack)
         self.header.set_title_widget(self.view_switcher_title)
 
+        # Main Menu (Hamburger) in the HeaderBar
+        self.menu_button = Gtk.MenuButton()
+        self.menu_button.set_icon_name("open-menu-symbolic")
+        
+        menu = Gio.Menu()
+        menu.append("Keyboard Shortcuts", "win.show-help-overlay")
+        menu.append("Preferences", "app.preferences")
+        menu.append("About Tapas", "app.about")
+        
+        self.menu_button.set_menu_model(menu)
+        self.header.pack_end(self.menu_button)
+
         # Build the pages
         self._build_pomodoro_page()
         
         # Initialize UI state
         self._update_time_display()
+        self._set_running_ui_state(False)
+        self.add_css_class("focus-window")
 
     def _build_pomodoro_page(self):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=48)
@@ -49,7 +63,6 @@ class TapasWindow(Adw.ApplicationWindow):
         # 1. Project Dropdown
         self.project_dropdown = Gtk.DropDown.new_from_strings(["DSA / Project", "Web Development", "Reading"])
         self.project_dropdown.set_halign(Gtk.Align.CENTER)
-        self.project_dropdown.add_css_class("pill")
         page_box.append(self.project_dropdown)
 
         # 2. Progress Bar and Time Labels
@@ -93,7 +106,7 @@ class TapasWindow(Adw.ApplicationWindow):
         self.play_pause_btn.add_css_class("play-circular")
         self.play_pause_btn.connect("clicked", self._on_play_pause_clicked)
         
-        self.break_btn = Gtk.Button(label="Break")
+        self.break_btn = Gtk.Button(label="Skip")
         self.break_btn.add_css_class("action-pill")
         self.break_btn.connect("clicked", self._on_break_clicked)
         
@@ -115,33 +128,53 @@ class TapasWindow(Adw.ApplicationWindow):
             Gtk.Label(label="Stats coming soon..."), "stats", "Stats", "utilities-system-monitor-symbolic"
         )
 
+    # --- UI State Helper ---
+    
+    def _set_running_ui_state(self, is_running):
+        """Updates buttons and dropdown based on whether the timer is ticking."""
+        if is_running:
+            self.play_pause_btn.set_icon_name("media-playback-pause-symbolic")
+            self.restart_btn.set_sensitive(False)
+            self.break_btn.set_sensitive(False)
+            
+            # Make the dropdown look like a static heading
+            self.project_dropdown.set_sensitive(False)
+            self.project_dropdown.set_show_arrow(False)
+            self.project_dropdown.remove_css_class("pill")
+            self.project_dropdown.add_css_class("flat")
+            self.project_dropdown.add_css_class("title-4") # Make it slightly larger like a heading
+        else:
+            self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
+            self.restart_btn.set_sensitive(True)
+            self.break_btn.set_sensitive(True)
+            
+            # Re-enable the dropdown
+            self.project_dropdown.set_sensitive(True)
+            self.project_dropdown.set_show_arrow(True)
+            self.project_dropdown.remove_css_class("flat")
+            self.project_dropdown.remove_css_class("title-4")
+            self.project_dropdown.add_css_class("pill")
+
+
     # --- Button Callbacks ---
     
     def _on_play_pause_clicked(self, button):
         if self.timer.is_running:
             self.timer.pause()
-            self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
-            self.restart_btn.set_sensitive(True)
-            self.break_btn.set_sensitive(True)
+            self._set_running_ui_state(False)
         else:
             self.timer.start()
-            self.play_pause_btn.set_icon_name("media-playback-pause-symbolic")
-            self.restart_btn.set_sensitive(False)
-            self.break_btn.set_sensitive(False)
+            self._set_running_ui_state(True)
 
     def _on_restart_clicked(self, button):
         self.timer.reset()
-        self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
-        self.restart_btn.set_sensitive(True)
-        self.break_btn.set_sensitive(True)
+        self._set_running_ui_state(False)
         self._update_time_display()
 
     def _on_break_clicked(self, button):
         self.timer.pause()
         self.timer.next_state()
-        self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
-        self.restart_btn.set_sensitive(True)
-        self.break_btn.set_sensitive(True)
+        self._set_running_ui_state(False)
         self._update_time_display()
 
     # --- Timer Callbacks ---
@@ -173,23 +206,24 @@ class TapasWindow(Adw.ApplicationWindow):
         self.progress_bar.remove_css_class("short-break-state")
         self.progress_bar.remove_css_class("long-break-state")
         
+        # Update window background tint
+        self.remove_css_class("focus-window")
+        self.remove_css_class("short-break-window")
+        self.remove_css_class("long-break-window")
+        
         if new_state == "Focus":
             self.progress_bar.add_css_class("focus-state")
-            self.break_btn.set_label("Break")
+            self.add_css_class("focus-window")
         elif new_state == "Short Break":
             self.progress_bar.add_css_class("short-break-state")
-            self.break_btn.set_label("Pomodoro")
+            self.add_css_class("short-break-window")
         elif new_state == "Long Break":
             self.progress_bar.add_css_class("long-break-state")
-            self.break_btn.set_label("Pomodoro")
+            self.add_css_class("long-break-window")
 
         self._update_time_display()
-        self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
-        self.restart_btn.set_sensitive(True)
-        self.break_btn.set_sensitive(True)
+        self._set_running_ui_state(False)
 
     def _on_timer_finish(self):
-        self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
-        self.restart_btn.set_sensitive(True)
-        self.break_btn.set_sensitive(True)
+        self._set_running_ui_state(False)
         self._update_time_display()

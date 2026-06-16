@@ -11,6 +11,19 @@ class TapasApplication(Adw.Application):
             application_id='com.github.tanay.Tapas',
             flags=Gio.ApplicationFlags.FLAGS_NONE
         )
+        self._setup_actions()
+
+    def _setup_actions(self):
+        prefs_action = Gio.SimpleAction.new("preferences", None)
+        prefs_action.connect("activate", self._on_preferences_action)
+        self.add_action(prefs_action)
+        self.set_accels_for_action("app.preferences", ["<Primary>comma"])
+
+    def _on_preferences_action(self, action, param):
+        from tapas.preferences import TapasPreferencesWindow
+        win = self.props.active_window
+        prefs_win = TapasPreferencesWindow(timer=win.timer, transient_for=win)
+        prefs_win.present()
 
     def do_activate(self):
         # Load CSS

@@ -1,5 +1,18 @@
 /* Custom Tapas Styling */
 
+window {
+    transition: background-color 1.0s ease-in-out;
+}
+
+window.focus-window {
+    background-color: mix(@theme_bg_color, @accent_bg_color, 0.12);
+}
+
+window.short-break-window,
+window.long-break-window {
+    background-color: mix(@theme_bg_color, @success_color, 0.12);
+}
+
 /* Make the progress bar extra bold and visually appealing */
 progressbar > trough {
     min-height: 36px;
