@@ -69,3 +69,10 @@ button.play-circular:hover {
 button.play-circular:active {
     transform: scale(0.95); /* Little pop animation on click */
 }
+
+/* Huge Stopwatch Timer */
+.huge-timer {
+    font-size: 84px;
+    font-weight: 800;
+    letter-spacing: 4px;
+}

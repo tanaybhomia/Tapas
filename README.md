@@ -3,9 +3,10 @@
 Tapas is a modern, beautifully designed Pomodoro and time-tracking application for the GNOME desktop, built with Python, GTK4, and Libadwaita.
 
 ## Screenshots
-![pomodoro screen](image.png)
+![pomodoro screen](docs/images/pomodoro-screen.png)
+![timer screen](docs/images/timer-screen.png)
 
-## Features (Planned)
+## Main Features
 - **Pomodoro Timer**: Classic focus/break intervals to boost productivity.
 - **Website Blocking**: Eliminate distractions during focus sessions.
 - **Projects & Tags**: Organize your tasks logically.
