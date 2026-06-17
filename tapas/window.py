@@ -2,14 +2,14 @@ import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 
-from gi.repository import Gtk, Adw, Gdk, Gio
+from gi.repository import Gtk, Adw, Gdk, Gio, GObject
 from tapas.timer import TimerLogic
 
 class TapasWindow(Adw.ApplicationWindow):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.set_title("Tapas")
-        self.set_default_size(600, 650)
+        self.set_default_size(400, 500)
 
         self.timer = TimerLogic()
         self.timer.on_tick_callback = self._on_timer_tick
@@ -28,8 +28,10 @@ class TapasWindow(Adw.ApplicationWindow):
         self.view_stack = Adw.ViewStack()
         self.toolbar_view.set_content(self.view_stack)
 
-        self.view_switcher_title = Adw.ViewSwitcherTitle(stack=self.view_stack)
-        self.header.set_title_widget(self.view_switcher_title)
+        # Bottom Switcher Bar (Always Visible)
+        self.switcher_bar = Adw.ViewSwitcherBar(stack=self.view_stack)
+        self.switcher_bar.set_reveal(True)
+        self.toolbar_view.add_bottom_bar(self.switcher_bar)
 
         # Main Menu (Hamburger) in the HeaderBar
         self.menu_button = Gtk.MenuButton()
@@ -43,6 +45,13 @@ class TapasWindow(Adw.ApplicationWindow):
         self.menu_button.set_menu_model(menu)
         self.header.pack_end(self.menu_button)
 
+        # Invisible matching button on the left to guarantee perfect mathematical and visual symmetry
+        self.balance_button = Gtk.MenuButton()
+        self.balance_button.set_icon_name("open-menu-symbolic")
+        self.balance_button.set_opacity(0)
+        self.balance_button.set_sensitive(False)
+        self.header.pack_start(self.balance_button)
+
         # Build the pages
         self._build_pomodoro_page()
         
@@ -55,10 +64,10 @@ class TapasWindow(Adw.ApplicationWindow):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=48)
         page_box.set_valign(Gtk.Align.CENTER)
         page_box.set_halign(Gtk.Align.CENTER)
-        page_box.set_margin_start(64)
-        page_box.set_margin_end(64)
-        page_box.set_margin_top(48)
-        page_box.set_margin_bottom(48)
+        page_box.set_margin_start(32)
+        page_box.set_margin_end(32)
+        page_box.set_margin_top(32)
+        page_box.set_margin_bottom(32)
         
         # 1. Project Dropdown
         self.project_dropdown = Gtk.DropDown.new_from_strings(["DSA / Project", "Web Development", "Reading"])
@@ -70,7 +79,7 @@ class TapasWindow(Adw.ApplicationWindow):
         
         self.progress_bar = Gtk.ProgressBar()
         self.progress_bar.set_fraction(0.0)
-        self.progress_bar.set_size_request(350, -1)
+        self.progress_bar.set_hexpand(True)
         self.progress_bar.add_css_class("focus-state") # Default state
         progress_box.append(self.progress_bar)
         
@@ -94,7 +103,7 @@ class TapasWindow(Adw.ApplicationWindow):
         page_box.append(progress_box)
 
         # 3. Action Buttons
-        self.action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=32)
+        self.action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
         self.action_box.set_halign(Gtk.Align.CENTER)
         
         self.restart_btn = Gtk.Button(label="Restart")
