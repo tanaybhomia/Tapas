@@ -29,6 +29,19 @@ class TimerLogic:
         
         self._timeout_id = None
 
+    def set_duration(self, state, duration_minutes):
+        old_duration = self.durations.get(state, 0)
+        self.durations[state] = duration_minutes
+        
+        if self.state == state:
+            delta_minutes = duration_minutes - old_duration
+            self.time_left += delta_minutes * 60
+            if self.time_left < 0:
+                self.time_left = 0
+                
+            if self.on_tick_callback:
+                self.on_tick_callback(self.time_left)
+
     def start(self):
         if not self.is_running:
             self.is_running = True
