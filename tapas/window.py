@@ -18,6 +18,7 @@ class TapasWindow(Adw.ApplicationWindow):
         self.timer.on_state_change_callback = self._on_state_change
         self.timer.on_finish_callback = self._on_timer_finish
         self.timer.on_warning_callback = self._on_timer_warning
+        self.timer.on_run_state_change_callback = self._set_running_ui_state
 
         self.stopwatch = StopwatchLogic()
         self.stopwatch.on_tick_callback = self._on_stopwatch_tick

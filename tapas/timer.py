@@ -33,6 +33,7 @@ class TimerLogic:
         self.on_finish_callback = None
         self.on_state_change_callback = None
         self.on_warning_callback = None
+        self.on_run_state_change_callback = None
         
         self._timeout_id = None
 
@@ -57,11 +58,15 @@ class TimerLogic:
     def start(self):
         if not self.is_running:
             self.is_running = True
+            if self.on_run_state_change_callback:
+                self.on_run_state_change_callback(True)
             self._timeout_id = GLib.timeout_add(1000, self._on_tick)
 
     def pause(self):
         if self.is_running:
             self.is_running = False
+            if self.on_run_state_change_callback:
+                self.on_run_state_change_callback(False)
             if self._timeout_id:
                 GLib.source_remove(self._timeout_id)
                 self._timeout_id = None
