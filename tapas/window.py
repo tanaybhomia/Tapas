@@ -4,6 +4,7 @@ gi.require_version('Adw', '1')
 
 from gi.repository import Gtk, Adw, Gdk, Gio, GObject, GLib
 from tapas.timer import TimerLogic, StopwatchLogic
+from tapas.database import db
 
 class TapasWindow(Adw.ApplicationWindow):
     def __init__(self, **kwargs):
@@ -16,6 +17,7 @@ class TapasWindow(Adw.ApplicationWindow):
         self.timer.on_tick_callback = self._on_timer_tick
         self.timer.on_state_change_callback = self._on_state_change
         self.timer.on_finish_callback = self._on_timer_finish
+        self.timer.on_warning_callback = self._on_timer_warning
 
         self.stopwatch = StopwatchLogic()
         self.stopwatch.on_tick_callback = self._on_stopwatch_tick
@@ -66,6 +68,10 @@ class TapasWindow(Adw.ApplicationWindow):
         self.balance_button.set_sensitive(False)
         self.header.pack_start(self.balance_button)
 
+        self._project_list = Gtk.StringList()
+        self._projects_map = []
+        self._load_projects()
+
         self.pomodoro_page = self._build_pomodoro_page()
         self.timer_page = self._build_timer_page()
         self.stats_page = Gtk.Label(label="Stats coming soon...")
@@ -80,6 +86,26 @@ class TapasWindow(Adw.ApplicationWindow):
         
         self._update_sw_time_display()
         self._set_sw_running_ui_state(False)
+        
+        try:
+            bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+            bus.signal_subscribe(
+                "org.gnome.ScreenSaver",
+                "org.gnome.ScreenSaver",
+                "ActiveChanged",
+                "/org/gnome/ScreenSaver",
+                None,
+                Gio.DBusSignalFlags.NONE,
+                self._on_screensaver_active_changed
+            )
+        except Exception as e:
+            pass
+
+    def _on_screensaver_active_changed(self, connection, sender_name, object_path, interface_name, signal_name, parameters):
+        is_active = parameters.unpack()[0]
+        if is_active and self.timer.pause_on_lock and self.timer.is_running:
+            self.timer.pause()
+            self._set_running_ui_state(False)
 
     def _on_carousel_page_changed(self, carousel, index):
         pages = ["pomodoro", "timer", "stats"]
@@ -116,7 +142,8 @@ class TapasWindow(Adw.ApplicationWindow):
         page_box.set_margin_top(32)
         page_box.set_margin_bottom(32)
         
-        self.project_dropdown = Gtk.DropDown.new_from_strings(["DSA / Project", "Web Development", "Reading"])
+        self.project_dropdown = Gtk.DropDown.new(model=self._project_list)
+        self.project_dropdown.connect("notify::selected", self._on_project_selected)
         self.project_dropdown.set_halign(Gtk.Align.CENTER)
         page_box.append(self.project_dropdown)
 
@@ -183,7 +210,8 @@ class TapasWindow(Adw.ApplicationWindow):
         page_box.set_margin_top(32)
         page_box.set_margin_bottom(32)
         
-        self.sw_project_dropdown = Gtk.DropDown.new_from_strings(["DSA / Project", "Web Development", "Reading"])
+        self.sw_project_dropdown = Gtk.DropDown.new(model=self._project_list)
+        self.sw_project_dropdown.connect("notify::selected", self._on_project_selected)
         self.sw_project_dropdown.set_halign(Gtk.Align.CENTER)
         page_box.append(self.sw_project_dropdown)
 
@@ -265,7 +293,7 @@ class TapasWindow(Adw.ApplicationWindow):
 
     def _update_time_display(self):
         time_left = self.timer.time_left
-        total_time = self.timer.durations[self.timer.state] * 60
+        total_time = getattr(self.timer, 'current_total_time', self.timer.durations[self.timer.state] * 60)
         elapsed_time = total_time - time_left
         
         el_min = elapsed_time // 60
@@ -306,9 +334,39 @@ class TapasWindow(Adw.ApplicationWindow):
         self._update_time_display()
         self._set_running_ui_state(False)
 
-    def _on_timer_finish(self):
+    def _on_timer_warning(self):
+        if self.timer.state == "Focus":
+            self._send_notification("Pomodoro Finishing Soon", "10 seconds remaining! Get ready to take a break.", False)
+
+    def _send_notification(self, title, body, show_break_actions=False):
+        notification = Gio.Notification.new(title)
+        notification.set_body(body)
+        notification.set_icon(Gio.ThemedIcon.new("alarm-symbolic"))
+        notification.set_priority(Gio.NotificationPriority.URGENT)
+        
+        if show_break_actions:
+            notification.add_button("Skip Break", "app.skip-break")
+            notification.add_button("Take a Break", "app.take-break")
+            
+        app = self.get_application()
+        if app:
+            app.send_notification("tapas-timer", notification)
+
+    def _on_timer_finish(self, completed_state, completed_duration):
         self._set_running_ui_state(False)
         self._update_time_display()
+        
+        if completed_state == "Focus":
+            selected_idx = self.project_dropdown.get_selected()
+            if selected_idx < len(self._projects_map):
+                project_id = self._projects_map[selected_idx][0]
+                db.log_session(project_id, "pomodoro", completed_duration * 60)
+            
+            if not self.timer.auto_start_breaks:
+                self._send_notification("Pomodoro is over!", "Confirm the start of a short break...", True)
+        else:
+            if not self.timer.auto_start_pomodoros:
+                self._send_notification("Break is over!", "Time to get back to focus.", False)
 
     def _set_sw_running_ui_state(self, is_running):
         self.switcher_bar.set_sensitive(not is_running)
@@ -349,6 +407,11 @@ class TapasWindow(Adw.ApplicationWindow):
         self._update_sw_time_display()
 
     def _on_sw_save_clicked(self, button):
+        selected_idx = self.sw_project_dropdown.get_selected()
+        if selected_idx < len(self._projects_map):
+            project_id = self._projects_map[selected_idx][0]
+            db.log_session(project_id, "timer", self.stopwatch.elapsed_seconds)
+            
         self.stopwatch.reset()
         self._set_sw_running_ui_state(False)
         self._update_sw_time_display()
@@ -361,3 +424,44 @@ class TapasWindow(Adw.ApplicationWindow):
 
     def _on_stopwatch_tick(self, elapsed_seconds):
         self._update_sw_time_display()
+
+    def _load_projects(self):
+        self._project_list.splice(0, self._project_list.get_n_items(), [])
+        self._projects_map = db.get_projects()
+        for pid, name in self._projects_map:
+            self._project_list.append(name)
+        self._project_list.append("+ Create New Project...")
+
+    def _show_create_project_dialog(self, dropdown):
+        dialog = Adw.MessageDialog.new(self, "New Project", "Enter the name of the new project:")
+        entry = Gtk.Entry(placeholder_text="Project Name")
+        entry.set_hexpand(True)
+        entry.set_margin_top(12)
+        
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        box.append(entry)
+        dialog.set_extra_child(box)
+        
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("create", "Create")
+        dialog.set_response_appearance("create", Adw.ResponseAppearance.SUGGESTED)
+        
+        def on_response(d, response):
+            if response == "create":
+                name = entry.get_text().strip()
+                if name:
+                    new_id = db.add_project(name)
+                    if new_id:
+                        self._load_projects()
+                        self.project_dropdown.set_selected(len(self._projects_map) - 1)
+                        self.sw_project_dropdown.set_selected(len(self._projects_map) - 1)
+                        return
+            dropdown.set_selected(0)
+
+        dialog.connect("response", on_response)
+        dialog.present()
+
+    def _on_project_selected(self, dropdown, param):
+        selected = dropdown.get_selected()
+        if selected == len(self._projects_map):
+            self._show_create_project_dialog(dropdown)

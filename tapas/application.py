@@ -18,6 +18,25 @@ class TapasApplication(Adw.Application):
         prefs_action.connect("activate", self._on_preferences_action)
         self.add_action(prefs_action)
         self.set_accels_for_action("app.preferences", ["<Primary>comma"])
+        
+        take_break_action = Gio.SimpleAction.new("take-break", None)
+        take_break_action.connect("activate", self._on_take_break)
+        self.add_action(take_break_action)
+        
+        skip_break_action = Gio.SimpleAction.new("skip-break", None)
+        skip_break_action.connect("activate", self._on_skip_break)
+        self.add_action(skip_break_action)
+
+    def _on_take_break(self, action, param):
+        win = self.props.active_window
+        if win and hasattr(win, 'timer'):
+            win.timer.start()
+
+    def _on_skip_break(self, action, param):
+        win = self.props.active_window
+        if win and hasattr(win, 'timer'):
+            win.timer.next_state()
+            win.timer.start()
 
     def _on_preferences_action(self, action, param):
         from tapas.preferences import TapasPreferencesWindow
