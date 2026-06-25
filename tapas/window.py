@@ -54,7 +54,7 @@ class BreakOverlayWindow(Gtk.Window):
             quote_label.set_halign(Gtk.Align.CENTER)
             main_vbox.append(quote_label)
             
-        self.set_content(main_vbox)
+        self.set_child(main_vbox)
         
         key_ctrl = Gtk.EventControllerKey.new()
         key_ctrl.connect("key-pressed", self._on_key_pressed)

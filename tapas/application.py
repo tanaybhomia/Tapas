@@ -26,6 +26,16 @@ class TapasApplication(Adw.Application):
         skip_break_action = Gio.SimpleAction.new("skip-break", None)
         skip_break_action.connect("activate", self._on_skip_break)
         self.add_action(skip_break_action)
+        
+        quit_action = Gio.SimpleAction.new("quit", None)
+        quit_action.connect("activate", self._on_quit_action)
+        self.add_action(quit_action)
+        self.set_accels_for_action("app.quit", ["<Primary>q"])
+
+    def _on_quit_action(self, action, param):
+        import sys
+        self.quit()
+        sys.exit(0)
 
     def _on_take_break(self, action, param):
         win = self.props.active_window
@@ -64,4 +74,9 @@ class TapasApplication(Adw.Application):
         win = self.props.active_window
         if not win:
             win = TapasWindow(application=self)
+            def _on_window_close(*args):
+                import sys
+                self.quit()
+                sys.exit(0)
+            win.connect("close-request", _on_window_close)
         win.present()

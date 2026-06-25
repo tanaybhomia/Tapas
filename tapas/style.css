@@ -5,12 +5,15 @@ window {
 }
 
 window.focus-window {
-    background-color: mix(@theme_bg_color, @accent_bg_color, 0.12);
+    background-color: mix(@theme_bg_color, #E55C5C, 0.05); /* Very subtle warm tint */
 }
 
-window.short-break-window,
+window.short-break-window {
+    background-color: mix(@theme_bg_color, #43C68A, 0.08); /* Very subtle cool mint tint */
+}
+
 window.long-break-window {
-    background-color: mix(@theme_bg_color, @success_color, 0.12);
+    background-color: mix(@theme_bg_color, #4D9EEB, 0.08); /* Very subtle calm blue tint */
 }
 
 /* Make the progress bar extra bold and visually appealing */
@@ -29,12 +32,15 @@ progressbar > trough > progress {
 
 /* Accent colors based on timer state */
 progressbar.focus-state > trough > progress {
-    background-color: @accent_bg_color; /* Standard blue or user's accent */
+    background-color: #E55C5C; /* Tomato */
 }
 
-progressbar.short-break-state > trough > progress,
+progressbar.short-break-state > trough > progress {
+    background-color: #43C68A; /* Mint */
+}
+
 progressbar.long-break-state > trough > progress {
-    background-color: @success_color; /* Beautiful GNOME green */
+    background-color: #4D9EEB; /* Blue */
 }
 
 /* Action Buttons Custom Sizing */
