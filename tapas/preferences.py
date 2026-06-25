@@ -75,7 +75,7 @@ class TapasPreferencesWindow(Adw.PreferencesWindow):
         self.confirm_pomo_row.add_suffix(self.confirm_pomo_switch)
         behavior_group.add(self.confirm_pomo_row)
         
-        notif_page = Adw.PreferencesPage(title="Notifications", icon_name="appointment-soon-symbolic")
+        notif_page = Adw.PreferencesPage(title="Notifications", icon_name="preferences-system-notifications-symbolic")
         
         ann_group = Adw.PreferencesGroup(title="Announcements")
         self.notify_row = Adw.ActionRow(title="Time Running Out", subtitle="Notify when Pomodoro or break is about to end.")
@@ -83,6 +83,13 @@ class TapasPreferencesWindow(Adw.PreferencesWindow):
         self.notify_switch.connect("notify::active", self._on_notify_running_out_changed)
         self.notify_row.add_suffix(self.notify_switch)
         ann_group.add(self.notify_row)
+        
+        self.dnd_row = Adw.ActionRow(title="System Do Not Disturb", subtitle="Automatically mute system notifications during a focus session.")
+        self.dnd_switch = Gtk.Switch(active=self.timer.dnd_sync if self.timer else False, valign=Gtk.Align.CENTER)
+        self.dnd_switch.connect("notify::active", self._on_dnd_sync_changed)
+        self.dnd_row.add_suffix(self.dnd_switch)
+        ann_group.add(self.dnd_row)
+        
         notif_page.add(ann_group)
         
         overlay_group = Adw.PreferencesGroup(title="Screen Overlay", description="A full-screen notification intended to enforce taking a break.")
@@ -116,11 +123,7 @@ class TapasPreferencesWindow(Adw.PreferencesWindow):
         notif_page.add(overlay_group)
         self.add(notif_page)
         
-        self.add(Adw.PreferencesPage(title="Sounds", icon_name="audio-volume-high-symbolic"))
-        self.add(Adw.PreferencesPage(title="Appearance", icon_name="applications-graphics-symbolic"))
-        self.add(Adw.PreferencesPage(title="Keyboard Shortcuts", icon_name="input-keyboard-symbolic"))
-        self.add(Adw.PreferencesPage(title="Integrations", icon_name="preferences-system-symbolic"))
-
+        
     def _create_spin_row(self, title_text, subtitle_text, min_val, max_val, default_val, callback):
         if hasattr(Adw, "SpinRow"):
             adj = Gtk.Adjustment(value=default_val, lower=min_val, upper=max_val, step_increment=1, page_increment=1, page_size=0)
@@ -182,6 +185,14 @@ class TapasPreferencesWindow(Adw.PreferencesWindow):
         if self.timer:
             self.timer.notify_running_out = switch.get_active()
             db.set_setting("notify_running_out", str(self.timer.notify_running_out))
+
+    def _on_dnd_sync_changed(self, switch, param):
+        if self.timer:
+            self.timer.dnd_sync = switch.get_active()
+            db.set_setting("dnd_sync", str(self.timer.dnd_sync))
+            
+            if self.timer.is_running and self.timer.state == TimerState.FOCUS:
+                self.timer._set_gnome_dnd(self.timer.dnd_sync)
 
     def _on_overlay_changed(self, switch, param):
         if self.timer:

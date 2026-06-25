@@ -34,6 +34,9 @@ class TapasApplication(Adw.Application):
 
     def _on_quit_action(self, action, param):
         import sys
+        win = self.props.active_window
+        if win and hasattr(win, 'timer') and win.timer and getattr(win.timer, 'dnd_sync', False):
+            win.timer._set_gnome_dnd(False)
         self.quit()
         sys.exit(0)
 
@@ -76,6 +79,8 @@ class TapasApplication(Adw.Application):
             win = TapasWindow(application=self)
             def _on_window_close(*args):
                 import sys
+                if hasattr(win, 'timer') and win.timer and getattr(win.timer, 'dnd_sync', False):
+                    win.timer._set_gnome_dnd(False)
                 self.quit()
                 sys.exit(0)
             win.connect("close-request", _on_window_close)

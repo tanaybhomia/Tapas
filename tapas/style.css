@@ -1,19 +1,8 @@
 /* Custom Tapas Styling */
 
+/* Window background transition */
 window {
     transition: background-color 1.0s ease-in-out;
-}
-
-window.focus-window {
-    background-color: mix(@theme_bg_color, #E55C5C, 0.05); /* Very subtle warm tint */
-}
-
-window.short-break-window {
-    background-color: mix(@theme_bg_color, #43C68A, 0.08); /* Very subtle cool mint tint */
-}
-
-window.long-break-window {
-    background-color: mix(@theme_bg_color, #4D9EEB, 0.08); /* Very subtle calm blue tint */
 }
 
 /* Make the progress bar extra bold and visually appealing */
@@ -32,15 +21,12 @@ progressbar > trough > progress {
 
 /* Accent colors based on timer state */
 progressbar.focus-state > trough > progress {
-    background-color: #E55C5C; /* Tomato */
+    background-color: @accent_bg_color;
 }
 
-progressbar.short-break-state > trough > progress {
-    background-color: #43C68A; /* Mint */
-}
-
+progressbar.short-break-state > trough > progress,
 progressbar.long-break-state > trough > progress {
-    background-color: #4D9EEB; /* Blue */
+    background-color: @success_color;
 }
 
 /* Action Buttons Custom Sizing */

@@ -125,6 +125,13 @@ class TapasWindow(Adw.ApplicationWindow):
         self.menu_button.set_icon_name("open-menu-symbolic")
         
         menu = Gio.Menu()
+        
+        theme_menu = Gio.Menu()
+        theme_menu.append("System Default", "win.theme-system")
+        theme_menu.append("Light", "win.theme-light")
+        theme_menu.append("Dark", "win.theme-dark")
+        menu.append_submenu("Theme", theme_menu)
+        
         menu.append("Keyboard Shortcuts", "win.show-help-overlay")
         menu.append("Preferences", "app.preferences")
         menu.append("About Tapas", "app.about")
@@ -153,6 +160,27 @@ class TapasWindow(Adw.ApplicationWindow):
         self._update_time_display()
         self._set_running_ui_state(False)
         self.add_css_class("focus-window")
+        
+        theme_sys_action = Gio.SimpleAction.new("theme-system", None)
+        theme_sys_action.connect("activate", self._on_theme_system)
+        self.add_action(theme_sys_action)
+        
+        theme_light_action = Gio.SimpleAction.new("theme-light", None)
+        theme_light_action.connect("activate", self._on_theme_light)
+        self.add_action(theme_light_action)
+        
+        theme_dark_action = Gio.SimpleAction.new("theme-dark", None)
+        theme_dark_action.connect("activate", self._on_theme_dark)
+        self.add_action(theme_dark_action)
+        
+        saved_theme = db.get_setting("theme", "system")
+        style_mgr = Adw.StyleManager.get_default()
+        if saved_theme == "light":
+            style_mgr.set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
+        elif saved_theme == "dark":
+            style_mgr.set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+        else:
+            style_mgr.set_color_scheme(Adw.ColorScheme.DEFAULT)
         
         self._update_sw_time_display()
         self._set_sw_running_ui_state(False)
@@ -194,6 +222,18 @@ class TapasWindow(Adw.ApplicationWindow):
                 return True
                 
         return False
+
+    def _on_theme_system(self, action, param):
+        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.DEFAULT)
+        db.set_setting("theme", "system")
+        
+    def _on_theme_light(self, action, param):
+        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
+        db.set_setting("theme", "light")
+        
+    def _on_theme_dark(self, action, param):
+        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+        db.set_setting("theme", "dark")
 
     def _on_view_stack_changed(self, stack, param):
         pages = ["pomodoro", "timer", "stats"]

@@ -1,6 +1,8 @@
 import gi
 gi.require_version('GLib', '2.0')
-from gi.repository import GLib
+gi.require_version('Gio', '2.0')
+from gi.repository import GLib, Gio
+import atexit
 from tapas.database import db
 
 class TimerState:
@@ -41,7 +43,15 @@ class TimerLogic:
         self.on_warning_callback = None
         self.on_run_state_change_callback = None
         
+        self.dnd_sync = db.get_setting("dnd_sync", "False") == "True"
+        self._original_dnd_state = None
+        
         self._timeout_id = None
+        atexit.register(self._cleanup_dnd)
+
+    def _cleanup_dnd(self):
+        if self.dnd_sync:
+            self._set_gnome_dnd(False)
 
     def set_duration(self, state, duration_minutes, update_active=True):
         old_duration = self.durations.get(state, 0)
@@ -64,6 +74,8 @@ class TimerLogic:
     def start(self):
         if not self.is_running:
             self.is_running = True
+            if self.dnd_sync and self.state == TimerState.FOCUS:
+                self._set_gnome_dnd(True)
             if self.on_run_state_change_callback:
                 self.on_run_state_change_callback(True)
             self._timeout_id = GLib.timeout_add(1000, self._on_tick)
@@ -71,6 +83,8 @@ class TimerLogic:
     def pause(self):
         if self.is_running:
             self.is_running = False
+            if self.dnd_sync:
+                self._set_gnome_dnd(False)
             if self.on_run_state_change_callback:
                 self.on_run_state_change_callback(False)
             if self._timeout_id:
@@ -118,6 +132,10 @@ class TimerLogic:
         completed_duration = self.durations[self.state]
         
         self.is_running = False
+        
+        if self.dnd_sync:
+            self._set_gnome_dnd(False)
+            
         self.next_state() # Automatically prep the next state
         
         if self.state == TimerState.FOCUS and self.auto_start_pomodoros:
@@ -129,6 +147,21 @@ class TimerLogic:
             self.on_finish_callback(completed_state, completed_duration)
             
         return GLib.SOURCE_REMOVE
+
+    def _set_gnome_dnd(self, enable):
+        try:
+            settings = Gio.Settings.new("org.gnome.desktop.notifications")
+            if enable:
+                self._original_dnd_state = settings.get_boolean("show-banners")
+                if self._original_dnd_state:
+                    settings.set_boolean("show-banners", False)
+            else:
+                if self._original_dnd_state is not None:
+                    settings.set_boolean("show-banners", self._original_dnd_state)
+                    self._original_dnd_state = None
+            Gio.Settings.sync()
+        except Exception as e:
+            print("Failed to toggle DND:", e)
 
 class StopwatchLogic:
     def __init__(self):
