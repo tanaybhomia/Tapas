@@ -215,6 +215,10 @@ class TapasWindow(Adw.ApplicationWindow):
         self.project_dropdown = Gtk.DropDown.new(model=self._project_list)
         self.project_dropdown.connect("notify::selected", self._on_project_selected)
         self.project_dropdown.set_halign(Gtk.Align.CENTER)
+        
+        popover = self.project_dropdown.get_last_child()
+        if popover:
+            popover.set_halign(Gtk.Align.CENTER)
         page_box.append(self.project_dropdown)
 
         progress_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
@@ -283,6 +287,10 @@ class TapasWindow(Adw.ApplicationWindow):
         self.sw_project_dropdown = Gtk.DropDown.new(model=self._project_list)
         self.sw_project_dropdown.connect("notify::selected", self._on_project_selected)
         self.sw_project_dropdown.set_halign(Gtk.Align.CENTER)
+        
+        popover = self.sw_project_dropdown.get_last_child()
+        if popover:
+            popover.set_halign(Gtk.Align.CENTER)
         page_box.append(self.sw_project_dropdown)
 
         self.sw_time_label = Gtk.Label(label="00:00")
