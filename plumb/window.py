@@ -1,12 +1,14 @@
 import gi
-gi.require_version('Gtk', '4.0')
-gi.require_version('Adw', '1')
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
 
 from gi.repository import Gtk, Adw, Gdk, Gio, GObject, GLib
-from tapas.timer import TimerLogic, StopwatchLogic
-from tapas.database import db
+from plumb.timer import TimerLogic, StopwatchLogic
+from plumb.database import db
 
 import random
+
 
 class BreakOverlayWindow(Gtk.Window):
     def __init__(self, on_dismiss_cb, show_quotes=True, **kwargs):
@@ -15,30 +17,30 @@ class BreakOverlayWindow(Gtk.Window):
         self.set_decorated(False)
         self.remove_css_class("background")
         self.add_css_class("break-overlay-window")
-        
+
         main_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        
+
         center_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=48)
         center_vbox.set_valign(Gtk.Align.CENTER)
         center_vbox.set_halign(Gtk.Align.CENTER)
         center_vbox.set_vexpand(True)
-        
+
         title = Gtk.Label(label="Take a Break")
         title.add_css_class("title-1")
-        
+
         self.time_label = Gtk.Label(label="00:00")
         self.time_label.add_css_class("huge-timer")
-        
+
         dismiss_btn = Gtk.Button(label="Dismiss (Esc)")
         dismiss_btn.add_css_class("pill")
         dismiss_btn.connect("clicked", self._on_dismiss)
-        
+
         center_vbox.append(title)
         center_vbox.append(self.time_label)
         center_vbox.append(dismiss_btn)
-        
+
         main_vbox.append(center_vbox)
-        
+
         if show_quotes:
             quotes = [
                 "Time to stretch those legs!",
@@ -46,37 +48,38 @@ class BreakOverlayWindow(Gtk.Window):
                 "Look away from the screen for 20 seconds.",
                 "Your eyes will thank you.",
                 "Resting is productive too.",
-                "Take a deep breath and relax."
+                "Take a deep breath and relax.",
             ]
             quote_label = Gtk.Label(label=random.choice(quotes))
             quote_label.add_css_class("overlay-quote")
             quote_label.set_margin_bottom(48)
             quote_label.set_halign(Gtk.Align.CENTER)
             main_vbox.append(quote_label)
-            
+
         self.set_child(main_vbox)
-        
+
         key_ctrl = Gtk.EventControllerKey.new()
         key_ctrl.connect("key-pressed", self._on_key_pressed)
         self.add_controller(key_ctrl)
-        
+
     def _on_key_pressed(self, controller, keyval, keycode, state):
         if keyval == Gdk.KEY_Escape:
             self._on_dismiss(None)
             return True
         return False
-        
+
     def _on_dismiss(self, button):
         if self.on_dismiss_cb:
             self.on_dismiss_cb()
-            
+
     def update_time(self, time_str):
         self.time_label.set_label(time_str)
 
-class TapasWindow(Adw.ApplicationWindow):
+
+class PlumbWindow(Adw.ApplicationWindow):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.set_title("Tapas")
+        self.set_title("Plumb")
         self.set_default_size(400, 500)
         self.set_resizable(False)
 
@@ -86,12 +89,12 @@ class TapasWindow(Adw.ApplicationWindow):
         self.timer.on_finish_callback = self._on_timer_finish
         self.timer.on_warning_callback = self._on_timer_warning
         self.timer.on_run_state_change_callback = self._set_running_ui_state
-        
+
         self._overlays = []
 
         self.stopwatch = StopwatchLogic()
         self.stopwatch.on_tick_callback = self._on_stopwatch_tick
-        
+
         self.toolbar_view = Adw.ToolbarView()
         self.set_content(self.toolbar_view)
 
@@ -109,10 +112,16 @@ class TapasWindow(Adw.ApplicationWindow):
         self.add_controller(self.key_ctrl)
 
         self.view_stack = Adw.ViewStack()
-        
-        self.view_stack.add_titled_with_icon(Gtk.Box(), "pomodoro", "Pomodoro", "alarm-symbolic")
-        self.view_stack.add_titled_with_icon(Gtk.Box(), "timer", "Timer", "document-open-recent-symbolic")
-        self.view_stack.add_titled_with_icon(Gtk.Box(), "stats", "Stats", "graph-symbolic")
+
+        self.view_stack.add_titled_with_icon(
+            Gtk.Box(), "pomodoro", "Pomodoro", "alarm-symbolic"
+        )
+        self.view_stack.add_titled_with_icon(
+            Gtk.Box(), "timer", "Timer", "document-open-recent-symbolic"
+        )
+        self.view_stack.add_titled_with_icon(
+            Gtk.Box(), "stats", "Stats", "graph-symbolic"
+        )
 
         self.switcher_bar = Adw.ViewSwitcherBar(stack=self.view_stack)
         self.switcher_bar.set_reveal(True)
@@ -123,19 +132,19 @@ class TapasWindow(Adw.ApplicationWindow):
 
         self.menu_button = Gtk.MenuButton()
         self.menu_button.set_icon_name("open-menu-symbolic")
-        
+
         menu = Gio.Menu()
-        
+
         theme_menu = Gio.Menu()
         theme_menu.append("System Default", "win.theme-system")
         theme_menu.append("Light", "win.theme-light")
         theme_menu.append("Dark", "win.theme-dark")
         menu.append_submenu("Theme", theme_menu)
-        
+
         menu.append("Keyboard Shortcuts", "win.show-help-overlay")
         menu.append("Preferences", "app.preferences")
-        menu.append("About Tapas", "app.about")
-        
+        menu.append("About Plumb", "app.about")
+
         self.menu_button.set_menu_model(menu)
         self.header.pack_end(self.menu_button)
 
@@ -152,27 +161,27 @@ class TapasWindow(Adw.ApplicationWindow):
         self.pomodoro_page = self._build_pomodoro_page()
         self.timer_page = self._build_timer_page()
         self.stats_page = Gtk.Label(label="Stats coming soon...")
-        
+
         self.carousel.append(self.pomodoro_page)
         self.carousel.append(self.timer_page)
         self.carousel.append(self.stats_page)
-        
+
         self._update_time_display()
         self._set_running_ui_state(False)
         self.add_css_class("focus-window")
-        
+
         theme_sys_action = Gio.SimpleAction.new("theme-system", None)
         theme_sys_action.connect("activate", self._on_theme_system)
         self.add_action(theme_sys_action)
-        
+
         theme_light_action = Gio.SimpleAction.new("theme-light", None)
         theme_light_action.connect("activate", self._on_theme_light)
         self.add_action(theme_light_action)
-        
+
         theme_dark_action = Gio.SimpleAction.new("theme-dark", None)
         theme_dark_action.connect("activate", self._on_theme_dark)
         self.add_action(theme_dark_action)
-        
+
         saved_theme = db.get_setting("theme", "system")
         style_mgr = Adw.StyleManager.get_default()
         if saved_theme == "light":
@@ -181,10 +190,10 @@ class TapasWindow(Adw.ApplicationWindow):
             style_mgr.set_color_scheme(Adw.ColorScheme.FORCE_DARK)
         else:
             style_mgr.set_color_scheme(Adw.ColorScheme.DEFAULT)
-        
+
         self._update_sw_time_display()
         self._set_sw_running_ui_state(False)
-        
+
         try:
             bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
             bus.signal_subscribe(
@@ -194,12 +203,20 @@ class TapasWindow(Adw.ApplicationWindow):
                 "/org/gnome/ScreenSaver",
                 None,
                 Gio.DBusSignalFlags.NONE,
-                self._on_screensaver_active_changed
+                self._on_screensaver_active_changed,
             )
         except Exception as e:
             pass
 
-    def _on_screensaver_active_changed(self, connection, sender_name, object_path, interface_name, signal_name, parameters):
+    def _on_screensaver_active_changed(
+        self,
+        connection,
+        sender_name,
+        object_path,
+        interface_name,
+        signal_name,
+        parameters,
+    ):
         is_active = parameters.unpack()[0]
         if is_active and self.timer.pause_on_lock and self.timer.is_running:
             self.timer.pause()
@@ -213,24 +230,24 @@ class TapasWindow(Adw.ApplicationWindow):
     def _on_key_pressed(self, controller, keyval, keycode, state):
         if keyval == Gdk.KEY_space:
             current_page = self.view_stack.get_visible_child_name()
-            
+
             if current_page == "pomodoro":
                 self._on_play_pause_clicked(None)
                 return True
             elif current_page == "timer":
                 self._on_sw_play_pause_clicked(None)
                 return True
-                
+
         return False
 
     def _on_theme_system(self, action, param):
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.DEFAULT)
         db.set_setting("theme", "system")
-        
+
     def _on_theme_light(self, action, param):
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
         db.set_setting("theme", "light")
-        
+
     def _on_theme_dark(self, action, param):
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)
         db.set_setting("theme", "dark")
@@ -251,41 +268,41 @@ class TapasWindow(Adw.ApplicationWindow):
         page_box.set_margin_end(32)
         page_box.set_margin_top(32)
         page_box.set_margin_bottom(32)
-        
+
         self.project_dropdown = Gtk.DropDown.new(model=self._project_list)
         self.project_dropdown.connect("notify::selected", self._on_project_selected)
         self.project_dropdown.set_halign(Gtk.Align.CENTER)
-        
+
         popover = self.project_dropdown.get_last_child()
         if popover:
             popover.set_halign(Gtk.Align.CENTER)
         page_box.append(self.project_dropdown)
 
         progress_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
-        
+
         self.progress_bar = Gtk.ProgressBar()
         self.progress_bar.set_fraction(0.0)
         self.progress_bar.set_hexpand(True)
         self.progress_bar.add_css_class("focus-state")
         progress_box.append(self.progress_bar)
-        
+
         time_labels_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        
+
         self.elapsed_label = Gtk.Label(label="00:00")
         self.elapsed_label.add_css_class("title-1")
-        
+
         spacer = Gtk.Box()
         spacer.set_hexpand(True)
-        
+
         self.total_label = Gtk.Label(label="25:00")
         self.total_label.add_css_class("title-1")
-        
+
         time_labels_box.append(self.elapsed_label)
         time_labels_box.append(spacer)
         time_labels_box.append(self.total_label)
-        
+
         progress_box.append(time_labels_box)
-        
+
         middle_container = Gtk.CenterBox()
         middle_container.set_size_request(-1, 140)
         middle_container.set_center_widget(progress_box)
@@ -293,24 +310,24 @@ class TapasWindow(Adw.ApplicationWindow):
 
         self.action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
         self.action_box.set_halign(Gtk.Align.CENTER)
-        
+
         self.restart_btn = Gtk.Button(label="Restart")
         self.restart_btn.add_css_class("action-pill")
         self.restart_btn.connect("clicked", self._on_restart_clicked)
-        
+
         self.play_pause_btn = Gtk.Button()
         self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
         self.play_pause_btn.add_css_class("play-circular")
         self.play_pause_btn.connect("clicked", self._on_play_pause_clicked)
-        
+
         self.break_btn = Gtk.Button(label="Skip")
         self.break_btn.add_css_class("action-pill")
         self.break_btn.connect("clicked", self._on_break_clicked)
-        
+
         self.action_box.append(self.restart_btn)
         self.action_box.append(self.play_pause_btn)
         self.action_box.append(self.break_btn)
-        
+
         page_box.append(self.action_box)
 
         return page_box
@@ -323,11 +340,11 @@ class TapasWindow(Adw.ApplicationWindow):
         page_box.set_margin_end(32)
         page_box.set_margin_top(32)
         page_box.set_margin_bottom(32)
-        
+
         self.sw_project_dropdown = Gtk.DropDown.new(model=self._project_list)
         self.sw_project_dropdown.connect("notify::selected", self._on_project_selected)
         self.sw_project_dropdown.set_halign(Gtk.Align.CENTER)
-        
+
         popover = self.sw_project_dropdown.get_last_child()
         if popover:
             popover.set_halign(Gtk.Align.CENTER)
@@ -335,7 +352,7 @@ class TapasWindow(Adw.ApplicationWindow):
 
         self.sw_time_label = Gtk.Label(label="00:00")
         self.sw_time_label.add_css_class("huge-timer")
-        
+
         middle_container = Gtk.CenterBox()
         middle_container.set_size_request(-1, 140)
         middle_container.set_center_widget(self.sw_time_label)
@@ -343,24 +360,24 @@ class TapasWindow(Adw.ApplicationWindow):
 
         self.sw_action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
         self.sw_action_box.set_halign(Gtk.Align.CENTER)
-        
+
         self.sw_restart_btn = Gtk.Button(label="Restart")
         self.sw_restart_btn.add_css_class("action-pill")
         self.sw_restart_btn.connect("clicked", self._on_sw_restart_clicked)
-        
+
         self.sw_play_pause_btn = Gtk.Button()
         self.sw_play_pause_btn.set_icon_name("media-playback-start-symbolic")
         self.sw_play_pause_btn.add_css_class("play-circular")
         self.sw_play_pause_btn.connect("clicked", self._on_sw_play_pause_clicked)
-        
+
         self.sw_save_btn = Gtk.Button(label="Save")
         self.sw_save_btn.add_css_class("action-pill")
         self.sw_save_btn.connect("clicked", self._on_sw_save_clicked)
-        
+
         self.sw_action_box.append(self.sw_restart_btn)
         self.sw_action_box.append(self.sw_play_pause_btn)
         self.sw_action_box.append(self.sw_save_btn)
-        
+
         page_box.append(self.sw_action_box)
 
         return page_box
@@ -368,25 +385,28 @@ class TapasWindow(Adw.ApplicationWindow):
     def _set_running_ui_state(self, is_running):
         self.switcher_bar.set_sensitive(not is_running)
         self.carousel.set_interactive(not is_running)
-        
+
         if is_running:
             self.play_pause_btn.set_icon_name("media-playback-pause-symbolic")
             self.restart_btn.set_sensitive(False)
             self.break_btn.set_sensitive(False)
-            
+
             self.project_dropdown.set_sensitive(False)
             self.project_dropdown.set_show_arrow(False)
             self.project_dropdown.remove_css_class("pill")
             self.project_dropdown.add_css_class("flat")
             self.project_dropdown.add_css_class("title-4")
-            
-            if self.timer.state in ["Short Break", "Long Break"] and self.timer.enable_screen_overlay:
+
+            if (
+                self.timer.state in ["Short Break", "Long Break"]
+                and self.timer.enable_screen_overlay
+            ):
                 self._show_overlays()
         else:
             self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
             self.restart_btn.set_sensitive(True)
             self.break_btn.set_sensitive(True)
-            
+
             self.project_dropdown.set_sensitive(True)
             self.project_dropdown.set_show_arrow(True)
             self.project_dropdown.remove_css_class("flat")
@@ -414,21 +434,25 @@ class TapasWindow(Adw.ApplicationWindow):
 
     def _update_time_display(self):
         time_left = self.timer.time_left
-        total_time = getattr(self.timer, 'current_total_time', self.timer.durations[self.timer.state] * 60)
+        total_time = getattr(
+            self.timer,
+            "current_total_time",
+            self.timer.durations[self.timer.state] * 60,
+        )
         elapsed_time = total_time - time_left
-        
+
         el_min = elapsed_time // 60
         el_sec = elapsed_time % 60
         self.elapsed_label.set_label(f"{el_min:02d}:{el_sec:02d}")
-        
+
         tot_min = total_time // 60
         tot_sec = total_time % 60
         self.total_label.set_label(f"{tot_min:02d}:{tot_sec:02d}")
-        
+
         time_str = f"{time_left // 60:02d}:{time_left % 60:02d}"
         for o in self._overlays:
             o.update_time(time_str)
-        
+
         if total_time > 0:
             self.progress_bar.set_fraction(elapsed_time / total_time)
         else:
@@ -441,11 +465,11 @@ class TapasWindow(Adw.ApplicationWindow):
         self.progress_bar.remove_css_class("focus-state")
         self.progress_bar.remove_css_class("short-break-state")
         self.progress_bar.remove_css_class("long-break-state")
-        
+
         self.remove_css_class("focus-window")
         self.remove_css_class("short-break-window")
         self.remove_css_class("long-break-window")
-        
+
         if new_state == "Focus":
             self.progress_bar.add_css_class("focus-state")
             self.add_css_class("focus-window")
@@ -465,24 +489,36 @@ class TapasWindow(Adw.ApplicationWindow):
         display = Gdk.Display.get_default()
         monitors = display.get_monitors()
         app = self.get_application()
-        
+
         for i in range(monitors.get_n_items()):
             monitor = monitors.get_item(i)
-            overlay = BreakOverlayWindow(self._hide_overlays, show_quotes=self.timer.show_overlay_quotes, application=app)
+            overlay = BreakOverlayWindow(
+                self._hide_overlays,
+                show_quotes=self.timer.show_overlay_quotes,
+                application=app,
+            )
             overlay.fullscreen_on_monitor(monitor)
             overlay.present()
             self._overlays.append(overlay)
-            
+
         self._update_time_display()
-            
+
     def _hide_overlays(self):
         for o in self._overlays:
             o.close()
         self._overlays.clear()
 
     def _on_timer_warning(self):
-        msg = "Get ready to take a break." if self.timer.state == "Focus" else "Get ready to focus."
-        title = "Pomodoro Finishing Soon" if self.timer.state == "Focus" else "Break Finishing Soon"
+        msg = (
+            "Get ready to take a break."
+            if self.timer.state == "Focus"
+            else "Get ready to focus."
+        )
+        title = (
+            "Pomodoro Finishing Soon"
+            if self.timer.state == "Focus"
+            else "Break Finishing Soon"
+        )
         self._send_notification(title, f"10 seconds remaining! {msg}", False)
 
     def _send_notification(self, title, body, show_break_actions=False):
@@ -490,40 +526,44 @@ class TapasWindow(Adw.ApplicationWindow):
         notification.set_body(body)
         notification.set_icon(Gio.ThemedIcon.new("alarm-symbolic"))
         notification.set_priority(Gio.NotificationPriority.URGENT)
-        
+
         if show_break_actions:
             notification.add_button("Skip Break", "app.skip-break")
             notification.add_button("Take a Break", "app.take-break")
-            
+
         app = self.get_application()
         if app:
-            app.send_notification("tapas-timer", notification)
+            app.send_notification("plumb-timer", notification)
 
     def _on_timer_finish(self, completed_state, completed_duration):
         self._set_running_ui_state(False)
         self._update_time_display()
-        
+
         if completed_state == "Focus":
             selected_idx = self.project_dropdown.get_selected()
             if selected_idx < len(self._projects_map):
                 project_id = self._projects_map[selected_idx][0]
                 db.log_session(project_id, "pomodoro", completed_duration * 60)
-            
+
             if not self.timer.auto_start_breaks:
-                self._send_notification("Pomodoro is over!", "Confirm the start of a short break...", True)
+                self._send_notification(
+                    "Pomodoro is over!", "Confirm the start of a short break...", True
+                )
         else:
             if not self.timer.auto_start_pomodoros:
-                self._send_notification("Break is over!", "Time to get back to focus.", False)
+                self._send_notification(
+                    "Break is over!", "Time to get back to focus.", False
+                )
 
     def _set_sw_running_ui_state(self, is_running):
         self.switcher_bar.set_sensitive(not is_running)
         self.carousel.set_interactive(not is_running)
-        
+
         if is_running:
             self.sw_play_pause_btn.set_icon_name("media-playback-pause-symbolic")
             self.sw_restart_btn.set_sensitive(False)
             self.sw_save_btn.set_sensitive(False)
-            
+
             self.sw_project_dropdown.set_sensitive(False)
             self.sw_project_dropdown.set_show_arrow(False)
             self.sw_project_dropdown.remove_css_class("pill")
@@ -533,7 +573,7 @@ class TapasWindow(Adw.ApplicationWindow):
             self.sw_play_pause_btn.set_icon_name("media-playback-start-symbolic")
             self.sw_restart_btn.set_sensitive(True)
             self.sw_save_btn.set_sensitive(True)
-            
+
             self.sw_project_dropdown.set_sensitive(True)
             self.sw_project_dropdown.set_show_arrow(True)
             self.sw_project_dropdown.remove_css_class("flat")
@@ -558,7 +598,7 @@ class TapasWindow(Adw.ApplicationWindow):
         if selected_idx < len(self._projects_map):
             project_id = self._projects_map[selected_idx][0]
             db.log_session(project_id, "timer", self.stopwatch.elapsed_seconds)
-            
+
         self.stopwatch.reset()
         self._set_sw_running_ui_state(False)
         self._update_sw_time_display()
@@ -580,19 +620,21 @@ class TapasWindow(Adw.ApplicationWindow):
         self._project_list.append("+ Create New Project...")
 
     def _show_create_project_dialog(self, dropdown):
-        dialog = Adw.MessageDialog.new(self, "New Project", "Enter the name of the new project:")
+        dialog = Adw.MessageDialog.new(
+            self, "New Project", "Enter the name of the new project:"
+        )
         entry = Gtk.Entry(placeholder_text="Project Name")
         entry.set_hexpand(True)
         entry.set_margin_top(12)
-        
+
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         box.append(entry)
         dialog.set_extra_child(box)
-        
+
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("create", "Create")
         dialog.set_response_appearance("create", Adw.ResponseAppearance.SUGGESTED)
-        
+
         def on_response(d, response):
             if response == "create":
                 name = entry.get_text().strip()
@@ -601,7 +643,9 @@ class TapasWindow(Adw.ApplicationWindow):
                     if new_id:
                         self._load_projects()
                         self.project_dropdown.set_selected(len(self._projects_map) - 1)
-                        self.sw_project_dropdown.set_selected(len(self._projects_map) - 1)
+                        self.sw_project_dropdown.set_selected(
+                            len(self._projects_map) - 1
+                        )
                         return
             dropdown.set_selected(0)
 

@@ -1,6 +1,6 @@
-# Tapas
+# Plumb
 
-Tapas is a modern, beautifully designed Pomodoro and time-tracking application for the GNOME desktop, built with Python, GTK4, and Libadwaita.
+Plumb is a modern, beautifully designed Pomodoro and time-tracking application for the GNOME desktop, built with Python, GTK4, and Libadwaita.
 
 ## Screenshots
 
