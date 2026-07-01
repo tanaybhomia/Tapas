@@ -86,3 +86,46 @@ window.break-overlay-window {
     font-weight: 500;
     opacity: 0.4;
 }
+
+/* Compact Mode Styling */
+.compact-window {
+    background-color: @window_bg_color;
+    border-radius: 12px;
+}
+
+.compact-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+}
+
+.compact-time {
+    font-size: 18px;
+    font-weight: 600;
+    opacity: 0.5;
+    color: white;
+}
+
+.compact-progress > trough {
+    min-height: 6px;
+    border-radius: 3px;
+    background-color: #333333;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.compact-progress > trough > progress {
+    min-height: 6px;
+    border-radius: 3px;
+}
+
+button.compact-btn {
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 16px;
+    color: white;
+}
+
+button.compact-btn:hover {
+    background-color: #333333;
+}

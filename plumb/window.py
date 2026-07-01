@@ -102,6 +102,11 @@ class PlumbWindow(Adw.ApplicationWindow):
 
         self.header = Adw.HeaderBar()
         self.toolbar_view.add_top_bar(self.header)
+        
+        self.btn_compact = Gtk.Button(icon_name="view-restore-symbolic")
+        self.btn_compact.set_tooltip_text("Mini Player")
+        self.btn_compact.connect("clicked", self._on_compact_clicked)
+        self.header.pack_start(self.btn_compact)
 
         self.carousel = Adw.Carousel()
         self.carousel.set_spacing(24)
@@ -477,12 +482,25 @@ class PlumbWindow(Adw.ApplicationWindow):
 
         time_str = f"{time_left // 60:02d}:{time_left % 60:02d}"
         for o in self._overlays:
-            o.update_time(time_str)
+            if o.get_visible():
+                o.update_time_label(time_str)
+                
+        if hasattr(self, 'compact_window') and self.compact_window.get_visible():
+            self.compact_window.update_display()
 
         if total_time > 0:
             self.progress_bar.set_fraction(elapsed_time / total_time)
         else:
             self.progress_bar.set_fraction(0.0)
+
+    def _on_compact_clicked(self, button):
+        self.set_visible(False)
+        if not hasattr(self, 'compact_window'):
+            from plumb.compact import CompactWindow
+            self.compact_window = CompactWindow(self.get_application(), self)
+            
+        self.compact_window.present()
+        self.compact_window.update_display()
 
     def _on_timer_tick(self, time_left):
         self._update_time_display()
@@ -660,6 +678,9 @@ class PlumbWindow(Adw.ApplicationWindow):
         m = secs // 60
         s = secs % 60
         self.sw_time_label.set_label(f"{m:02d}:{s:02d}")
+        
+        if hasattr(self, 'compact_window') and self.compact_window.get_visible():
+            self.compact_window.update_display()
 
     def _on_stopwatch_tick(self, elapsed_seconds):
         self._update_sw_time_display()

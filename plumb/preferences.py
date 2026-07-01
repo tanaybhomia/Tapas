@@ -241,6 +241,10 @@ class PlumbPreferencesWindow(Adw.PreferencesWindow):
             self.add_toast(toast)
         else:
             self.timer.set_duration(state, value)
+            
+        main_win = self.get_transient_for()
+        if main_win and hasattr(main_win, "_update_time_display"):
+            main_win._update_time_display()
 
     def _on_pomo_changed(self, value):
         self._handle_duration_change(
@@ -265,6 +269,10 @@ class PlumbPreferencesWindow(Adw.PreferencesWindow):
             self.timer.cycles = value
             db.set_setting("cycles", value)
         self._update_summary_label()
+        
+        main_win = self.get_transient_for()
+        if main_win and hasattr(main_win, "_update_time_display"):
+            main_win._update_time_display()
 
     def _update_summary_label(self):
         pomo_min = self.timer.durations[TimerState.FOCUS] if self.timer else 25

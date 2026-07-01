@@ -37,12 +37,17 @@ class PlumbApplication(Adw.Application):
         skip_pomo_action.connect("activate", self._on_skip_pomodoro)
         self.add_action(skip_pomo_action)
 
+        toggle_compact_action = Gio.SimpleAction.new("toggle-compact", None)
+        toggle_compact_action.connect("activate", self._on_toggle_compact)
+        self.add_action(toggle_compact_action)
+        self.set_accels_for_action("app.toggle-compact", ["<Alt>c"])
+
         quit_action = Gio.SimpleAction.new("quit", None)
         quit_action.connect("activate", self._on_quit_action)
         self.add_action(quit_action)
         self.set_accels_for_action("app.quit", ["<Primary>q"])
 
-    def _on_quit_action(self, action, param):
+    def _do_quit(self):
         import sys
 
         win = self.props.active_window
@@ -55,6 +60,59 @@ class PlumbApplication(Adw.Application):
             win.timer._set_gnome_dnd(False)
         self.quit()
         sys.exit(0)
+
+    def _attempt_quit(self, win):
+        if not win or not hasattr(win, "timer"):
+            self._do_quit()
+            return
+
+        is_pomodoro_active = win.timer.is_running or win.timer.time_left < (win.timer.durations.get(win.timer.state, 0) * 60)
+        is_stopwatch_active = win.stopwatch.is_running or win.stopwatch.elapsed_seconds > 0
+
+        if is_pomodoro_active or is_stopwatch_active:
+            dialog = Adw.MessageDialog(
+                heading="Active Session in Progress",
+            )
+            dialog.set_transient_for(win)
+            
+            dialog.add_response("cancel", "Cancel")
+            
+            dialog.add_response("background", "Run in Background")
+            dialog.set_response_appearance("background", Adw.ResponseAppearance.SUGGESTED)
+            
+            if is_stopwatch_active and win.stopwatch.elapsed_seconds >= 300:
+                dialog.add_response("save_quit", "Save & Quit")
+                dialog.add_response("quit", "Discard & Quit")
+                dialog.set_response_appearance("quit", Adw.ResponseAppearance.DESTRUCTIVE)
+            else:
+                dialog.add_response("quit", "Quit")
+                dialog.set_response_appearance("quit", Adw.ResponseAppearance.DESTRUCTIVE)
+                
+            def on_response(dialog, response):
+                if response == "background":
+                    win.set_visible(False)
+                    if hasattr(win, "compact_window") and win.compact_window:
+                        win.compact_window.set_visible(False)
+                elif response == "save_quit":
+                    win._on_sw_save_clicked(None)
+                    self._do_quit()
+                elif response == "quit":
+                    self._do_quit()
+                    
+            dialog.connect("response", on_response)
+            dialog.present()
+        else:
+            self._do_quit()
+
+    def _on_quit_action(self, action, param):
+        win = self.props.active_window
+        if win:
+            if hasattr(win, "main_window"):
+                self._attempt_quit(win.main_window)
+            else:
+                self._attempt_quit(win)
+        else:
+            self._do_quit()
 
     def _on_take_break(self, action, param):
         win = self.props.active_window
@@ -77,6 +135,14 @@ class PlumbApplication(Adw.Application):
         if win and hasattr(win, "timer"):
             win.timer.next_state()
             win.timer.start()
+
+    def _on_toggle_compact(self, action, param):
+        win = self.props.active_window
+        if win:
+            if hasattr(win, "main_window"):
+                win._on_restore_clicked(None)
+            elif hasattr(win, "_on_compact_clicked"):
+                win._on_compact_clicked(None)
 
     def _on_preferences_action(self, action, param):
         from plumb.preferences import PlumbPreferencesWindow
@@ -108,16 +174,8 @@ class PlumbApplication(Adw.Application):
             win = PlumbWindow(application=self)
 
             def _on_window_close(*args):
-                import sys
-
-                if (
-                    hasattr(win, "timer")
-                    and win.timer
-                    and getattr(win.timer, "dnd_sync", False)
-                ):
-                    win.timer._set_gnome_dnd(False)
-                self.quit()
-                sys.exit(0)
+                self._attempt_quit(win)
+                return True
 
             win.connect("close-request", _on_window_close)
         win.present()
