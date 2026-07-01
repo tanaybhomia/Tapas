@@ -80,3 +80,9 @@ window.break-overlay-window {
     font-weight: 500;
     opacity: 0.8;
 }
+
+.cycle-indicator {
+    font-size: 16px;
+    font-weight: 500;
+    opacity: 0.4;
+}

@@ -28,6 +28,7 @@ class TimerLogic:
         self.time_left = self.durations[self.state] * 60
         self.current_total_time = self.time_left
         self.focus_sessions_completed = 0
+        self.cycles = int(db.get_setting("cycles", 4))
 
         self.auto_start_breaks = db.get_setting("auto_start_breaks", "False") == "True"
         self.auto_start_pomodoros = (
@@ -114,7 +115,7 @@ class TimerLogic:
         """Automatically transitions to the next Pomodoro state."""
         if self.state == TimerState.FOCUS:
             self.focus_sessions_completed += 1
-            if self.focus_sessions_completed % 4 == 0:
+            if self.focus_sessions_completed % self.cycles == 0:
                 self.state = TimerState.LONG_BREAK
             else:
                 self.state = TimerState.SHORT_BREAK

@@ -28,6 +28,14 @@ class PlumbApplication(Adw.Application):
         skip_break_action = Gio.SimpleAction.new("skip-break", None)
         skip_break_action.connect("activate", self._on_skip_break)
         self.add_action(skip_break_action)
+        
+        start_pomo_action = Gio.SimpleAction.new("start-pomodoro", None)
+        start_pomo_action.connect("activate", self._on_start_pomodoro)
+        self.add_action(start_pomo_action)
+
+        skip_pomo_action = Gio.SimpleAction.new("skip-pomodoro", None)
+        skip_pomo_action.connect("activate", self._on_skip_pomodoro)
+        self.add_action(skip_pomo_action)
 
         quit_action = Gio.SimpleAction.new("quit", None)
         quit_action.connect("activate", self._on_quit_action)
@@ -54,6 +62,17 @@ class PlumbApplication(Adw.Application):
             win.timer.start()
 
     def _on_skip_break(self, action, param):
+        win = self.props.active_window
+        if win and hasattr(win, "timer"):
+            win.timer.next_state()
+            win.timer.start()
+
+    def _on_start_pomodoro(self, action, param):
+        win = self.props.active_window
+        if win and hasattr(win, "timer"):
+            win.timer.start()
+
+    def _on_skip_pomodoro(self, action, param):
         win = self.props.active_window
         if win and hasattr(win, "timer"):
             win.timer.next_state()

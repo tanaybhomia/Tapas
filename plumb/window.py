@@ -271,14 +271,24 @@ class PlumbWindow(Adw.ApplicationWindow):
         page_box.set_margin_top(32)
         page_box.set_margin_bottom(32)
 
+        self.project_dropdown_stack = Gtk.Stack()
+        self.project_dropdown_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.project_dropdown_stack.set_halign(Gtk.Align.CENTER)
+
         self.project_dropdown = Gtk.DropDown.new(model=self._project_list)
         self.project_dropdown.connect("notify::selected", self._on_project_selected)
-        self.project_dropdown.set_halign(Gtk.Align.CENTER)
-
+        
         popover = self.project_dropdown.get_last_child()
         if popover:
             popover.set_halign(Gtk.Align.CENTER)
-        page_box.append(self.project_dropdown)
+            
+        self.project_dropdown_stack.add_named(self.project_dropdown, "dropdown")
+        
+        self.break_state_label = Gtk.Label(label="Short Break")
+        self.break_state_label.add_css_class("title-4")
+        self.project_dropdown_stack.add_named(self.break_state_label, "break_label")
+
+        page_box.append(self.project_dropdown_stack)
 
         progress_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
 
@@ -288,20 +298,20 @@ class PlumbWindow(Adw.ApplicationWindow):
         self.progress_bar.add_css_class("focus-state")
         progress_box.append(self.progress_bar)
 
-        time_labels_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        time_labels_box = Gtk.CenterBox()
 
         self.elapsed_label = Gtk.Label(label="00:00")
         self.elapsed_label.add_css_class("title-1")
 
-        spacer = Gtk.Box()
-        spacer.set_hexpand(True)
+        self.cycle_label = Gtk.Label(label="1/4")
+        self.cycle_label.add_css_class("cycle-indicator")
 
         self.total_label = Gtk.Label(label="25:00")
         self.total_label.add_css_class("title-1")
 
-        time_labels_box.append(self.elapsed_label)
-        time_labels_box.append(spacer)
-        time_labels_box.append(self.total_label)
+        time_labels_box.set_start_widget(self.elapsed_label)
+        time_labels_box.set_center_widget(self.cycle_label)
+        time_labels_box.set_end_widget(self.total_label)
 
         progress_box.append(time_labels_box)
 
@@ -456,6 +466,14 @@ class PlumbWindow(Adw.ApplicationWindow):
         tot_min = total_time // 60
         tot_sec = total_time % 60
         self.total_label.set_label(f"{tot_min:02d}:{tot_sec:02d}")
+        
+        completed_mod = self.timer.focus_sessions_completed % self.timer.cycles
+        if self.timer.state == "Focus":
+            current_cycle = completed_mod + 1
+        else:
+            current_cycle = completed_mod if completed_mod > 0 else self.timer.cycles
+            
+        self.cycle_label.set_label(f"{current_cycle}/{self.timer.cycles}")
 
         time_str = f"{time_left // 60:02d}:{time_left % 60:02d}"
         for o in self._overlays:
@@ -481,13 +499,18 @@ class PlumbWindow(Adw.ApplicationWindow):
         if new_state == "Focus":
             self.progress_bar.add_css_class("focus-state")
             self.add_css_class("focus-window")
+            self.project_dropdown_stack.set_visible_child_name("dropdown")
             self._hide_overlays()
         elif new_state == "Short Break":
             self.progress_bar.add_css_class("short-break-state")
             self.add_css_class("short-break-window")
+            self.break_state_label.set_label("Short Break")
+            self.project_dropdown_stack.set_visible_child_name("break_label")
         elif new_state == "Long Break":
             self.progress_bar.add_css_class("long-break-state")
             self.add_css_class("long-break-window")
+            self.break_state_label.set_label("Long Break")
+            self.project_dropdown_stack.set_visible_child_name("break_label")
 
         self._update_time_display()
         self._set_running_ui_state(False)
@@ -529,15 +552,18 @@ class PlumbWindow(Adw.ApplicationWindow):
         )
         self._send_notification(title, f"10 seconds remaining! {msg}", False)
 
-    def _send_notification(self, title, body, show_break_actions=False):
+    def _send_notification(self, title, body, action_type=None):
         notification = Gio.Notification.new(title)
         notification.set_body(body)
         notification.set_icon(Gio.ThemedIcon.new("alarm-symbolic"))
         notification.set_priority(Gio.NotificationPriority.URGENT)
 
-        if show_break_actions:
+        if action_type == "break":
             notification.add_button("Skip Break", "app.skip-break")
             notification.add_button("Take a Break", "app.take-break")
+        elif action_type == "pomodoro":
+            notification.add_button("Skip Pomodoro", "app.skip-pomodoro")
+            notification.add_button("Start Pomodoro", "app.start-pomodoro")
 
         app = self.get_application()
         if app:
@@ -555,12 +581,12 @@ class PlumbWindow(Adw.ApplicationWindow):
 
             if not self.timer.auto_start_breaks:
                 self._send_notification(
-                    "Pomodoro is over!", "Confirm the start of a short break...", True
+                    "Pomodoro is over!", "Confirm the start of a short break...", "break"
                 )
         else:
             if not self.timer.auto_start_pomodoros:
                 self._send_notification(
-                    "Break is over!", "Time to get back to focus.", False
+                    "Break is over!", "Time to get back to focus.", "pomodoro"
                 )
 
     def _set_sw_running_ui_state(self, is_running):

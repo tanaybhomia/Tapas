@@ -55,7 +55,7 @@ class PlumbPreferencesWindow(Adw.PreferencesWindow):
 
         if hasattr(Adw, "SpinRow"):
             adj = Gtk.Adjustment(
-                value=4,
+                value=self.timer.cycles if self.timer else 4,
                 lower=1,
                 upper=10,
                 step_increment=1,
@@ -63,24 +63,24 @@ class PlumbPreferencesWindow(Adw.PreferencesWindow):
                 page_size=0,
             )
             self.cycles_row = Adw.SpinRow(title="Number of Cycles", adjustment=adj)
+            self.cycles_row.connect("notify::value", lambda r, p: self._on_cycles_changed(int(r.get_value())))
         else:
             self.cycles_row = Adw.ActionRow(title="Number of Cycles")
             self.cycles_spin = Gtk.SpinButton.new_with_range(1, 10, 1)
             self.cycles_spin.set_valign(Gtk.Align.CENTER)
-            self.cycles_spin.set_value(4)
+            self.cycles_spin.set_value(self.timer.cycles if self.timer else 4)
+            self.cycles_spin.connect("value-changed", lambda s: self._on_cycles_changed(int(s.get_value())))
             self.cycles_row.add_suffix(self.cycles_spin)
 
         session_group.add(self.cycles_row)
 
         self.summary_label = Gtk.Label()
-        self.summary_label.set_markup(
-            "A single session will take <b>4 hours 5 minutes</b>.\n<b>10%</b> of the time will be allocated for breaks."
-        )
         self.summary_label.set_halign(Gtk.Align.START)
         self.summary_label.set_margin_top(16)
         self.summary_label.set_margin_bottom(16)
         self.summary_label.add_css_class("dim-label")
         session_group.add(self.summary_label)
+        self._update_summary_label()
 
         behavior_group = Adw.PreferencesGroup(title="Behavior")
         timer_page.add(behavior_group)
@@ -246,15 +246,53 @@ class PlumbPreferencesWindow(Adw.PreferencesWindow):
         self._handle_duration_change(
             TimerState.FOCUS, value, getattr(self, "pomo_row", None)
         )
+        self._update_summary_label()
 
     def _on_short_break_changed(self, value):
         self._handle_duration_change(
             TimerState.SHORT_BREAK, value, getattr(self, "short_break_row", None)
         )
+        self._update_summary_label()
 
     def _on_long_break_changed(self, value):
         self._handle_duration_change(
             TimerState.LONG_BREAK, value, getattr(self, "long_break_row", None)
+        )
+        self._update_summary_label()
+        
+    def _on_cycles_changed(self, value):
+        if self.timer:
+            self.timer.cycles = value
+            db.set_setting("cycles", value)
+        self._update_summary_label()
+
+    def _update_summary_label(self):
+        pomo_min = self.timer.durations[TimerState.FOCUS] if self.timer else 25
+        short_min = self.timer.durations[TimerState.SHORT_BREAK] if self.timer else 5
+        long_min = self.timer.durations.get(TimerState.LONG_BREAK, 15) if self.timer else 15
+        cycles = self.timer.cycles if self.timer else 4
+
+        focus_time = cycles * pomo_min
+        break_time = ((cycles - 1) * short_min) + long_min
+        total_time = focus_time + break_time
+        
+        hours = total_time // 60
+        mins = total_time % 60
+        
+        time_str = ""
+        if hours > 0:
+            time_str += f"{hours} hour{'s' if hours > 1 else ''} "
+        if mins > 0:
+            time_str += f"{mins} minute{'s' if mins > 1 else ''}"
+        time_str = time_str.strip()
+        
+        if total_time > 0:
+            break_percent = int((break_time / total_time) * 100)
+        else:
+            break_percent = 0
+            
+        self.summary_label.set_markup(
+            f"A single session will take <b>{time_str}</b>.\n<b>{break_percent}%</b> of the time will be allocated for breaks."
         )
 
     def _on_pause_lock_changed(self, switch, param):
