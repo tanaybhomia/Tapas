@@ -129,3 +129,44 @@ button.compact-btn {
 button.compact-btn:hover {
     background-color: #333333;
 }
+
+/* Ironclad Theme */
+.ironclad-theme .focus-state > trough > progress {
+    background-color: #E64A19; /* Heated Iron Orange */
+}
+
+.ironclad-theme progressbar > trough,
+.ironclad-theme .compact-progress > trough {
+    background-color: rgba(230, 74, 25, 0.15);
+}
+
+.ironclad-theme button.action-pill,
+.ironclad-theme dropdown > button {
+    background-color: rgba(230, 74, 25, 0.15);
+    color: white;
+}
+
+.ironclad-theme button.action-pill:hover,
+.ironclad-theme dropdown > button:hover {
+    background-color: rgba(230, 74, 25, 0.25);
+}
+
+.ironclad-theme button.play-circular {
+    background-color: rgba(230, 74, 25, 0.20);
+}
+
+.ironclad-theme button.play-circular:hover {
+    background-color: rgba(230, 74, 25, 0.30);
+}
+
+.ironclad-theme button.compact-btn:hover {
+    background-color: rgba(230, 74, 25, 0.30);
+}
+
+.ironclad-theme.focus-window {
+    background-color: #1a1a1c;
+}
+
+.ironclad-theme.compact-window {
+    background-color: #121213;
+}

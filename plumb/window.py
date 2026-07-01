@@ -107,6 +107,14 @@ class PlumbWindow(Adw.ApplicationWindow):
         self.btn_compact.set_tooltip_text("Mini Player")
         self.btn_compact.connect("clicked", self._on_compact_clicked)
         self.header.pack_start(self.btn_compact)
+        
+        self.is_ironclad = db.get_setting("ironclad_mode", "False") == "True"
+        self.btn_ironclad = Gtk.ToggleButton(icon_name="security-high-symbolic")
+        self.btn_ironclad.set_active(self.is_ironclad)
+        self.btn_ironclad.set_tooltip_text("Ironclad Mode")
+        self.btn_ironclad.connect("toggled", self._on_ironclad_toggled)
+        self.header.pack_start(self.btn_ironclad)
+        self._update_ironclad_theme()
 
         self.carousel = Adw.Carousel()
         self.carousel.set_spacing(24)
@@ -418,9 +426,22 @@ class PlumbWindow(Adw.ApplicationWindow):
             self.project_dropdown.add_css_class("pill")
 
         if is_running:
-            self.play_pause_btn.set_icon_name("media-playback-pause-symbolic")
+            if self.is_ironclad and self.timer.state == "Focus":
+                self.play_pause_btn.set_icon_name("security-high-symbolic")
+                self.play_pause_btn.set_sensitive(False)
+                
+                self.break_btn.set_icon_name("process-stop-symbolic")
+                self.break_btn.add_css_class("destructive-action")
+                self.break_btn.set_sensitive(True)
+            else:
+                self.play_pause_btn.set_icon_name("media-playback-pause-symbolic")
+                self.play_pause_btn.set_sensitive(True)
+                
+                self.break_btn.set_icon_name("media-skip-forward-symbolic")
+                self.break_btn.remove_css_class("destructive-action")
+                self.break_btn.set_sensitive(False)
+                
             self.restart_btn.set_sensitive(False)
-            self.break_btn.set_sensitive(False)
 
             if (
                 self.timer.state in ["Short Break", "Long Break"]
@@ -429,7 +450,10 @@ class PlumbWindow(Adw.ApplicationWindow):
                 self._show_overlays()
         else:
             self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
+            self.play_pause_btn.set_sensitive(True)
             self.restart_btn.set_sensitive(True)
+            self.break_btn.set_icon_name("media-skip-forward-symbolic")
+            self.break_btn.remove_css_class("destructive-action")
             self.break_btn.set_sensitive(True)
 
     def _on_play_pause_clicked(self, button):
@@ -438,6 +462,8 @@ class PlumbWindow(Adw.ApplicationWindow):
             return
 
         if self.timer.is_running:
+            if self.is_ironclad and self.timer.state == "Focus":
+                return
             self.timer.pause()
             self._set_running_ui_state(False)
         else:
@@ -450,6 +476,26 @@ class PlumbWindow(Adw.ApplicationWindow):
         self._update_time_display()
 
     def _on_break_clicked(self, button):
+        if self.timer.state == "Focus" and self.is_ironclad and self.timer.is_running:
+            dialog = Adw.MessageDialog(
+                heading="Give Up?",
+                body="You are in Ironclad Mode. Giving up will discard this session entirely.",
+            )
+            dialog.set_transient_for(self)
+            dialog.add_response("cancel", "Keep Focusing")
+            dialog.add_response("give_up", "Give Up")
+            dialog.set_response_appearance("give_up", Adw.ResponseAppearance.DESTRUCTIVE)
+            
+            def on_response(dialog, response):
+                if response == "give_up":
+                    self.timer.pause()
+                    self.timer.reset()
+                    self._set_running_ui_state(False)
+                    self._update_time_display()
+            dialog.connect("response", on_response)
+            dialog.present()
+            return
+
         self.timer.pause()
         self.timer.next_state()
         self._set_running_ui_state(False)
@@ -501,6 +547,22 @@ class PlumbWindow(Adw.ApplicationWindow):
             
         self.compact_window.present()
         self.compact_window.update_display()
+
+    def _on_ironclad_toggled(self, button):
+        self.is_ironclad = button.get_active()
+        db.set_setting("ironclad_mode", str(self.is_ironclad))
+        self._update_ironclad_theme()
+        self._set_running_ui_state(self.timer.is_running)
+
+    def _update_ironclad_theme(self):
+        if self.is_ironclad:
+            self.add_css_class("ironclad-theme")
+            if hasattr(self, "compact_window") and self.compact_window:
+                self.compact_window.add_css_class("ironclad-theme")
+        else:
+            self.remove_css_class("ironclad-theme")
+            if hasattr(self, "compact_window") and self.compact_window:
+                self.compact_window.remove_css_class("ironclad-theme")
 
     def _on_timer_tick(self, time_left):
         self._update_time_display()

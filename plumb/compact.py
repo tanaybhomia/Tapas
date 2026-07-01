@@ -12,6 +12,8 @@ class CompactWindow(Gtk.ApplicationWindow):
         self.set_decorated(False)
         self.set_resizable(False)
         self.add_css_class("compact-window")
+        if self.main_window.is_ironclad:
+            self.add_css_class("ironclad-theme")
 
         # Main layout
         window_handle = Gtk.WindowHandle()
@@ -116,15 +118,26 @@ class CompactWindow(Gtk.ApplicationWindow):
             
             # Buttons
             if self.main_window.timer.is_running:
-                self.btn_play_pause.set_icon_name("media-playback-pause-symbolic")
+                if self.main_window.timer.state == "Focus" and self.main_window.is_ironclad:
+                    self.btn_play_pause.set_icon_name("security-high-symbolic")
+                    self.btn_play_pause.set_sensitive(False)
+                    self.btn_skip.set_icon_name("process-stop-symbolic")
+                    self.btn_skip.add_css_class("destructive-action")
+                    self.btn_skip.set_sensitive(True)
+                else:
+                    self.btn_play_pause.set_icon_name("media-playback-pause-symbolic")
+                    self.btn_skip.set_icon_name("media-skip-forward-symbolic")
+                    self.btn_skip.remove_css_class("destructive-action")
+                    self.btn_skip.set_sensitive(False)
+                
                 self.btn_restart.set_sensitive(False)
-                self.btn_skip.set_sensitive(False)
             else:
                 self.btn_play_pause.set_icon_name("media-playback-start-symbolic")
+                self.btn_play_pause.set_sensitive(True)
                 self.btn_restart.set_sensitive(True)
+                self.btn_skip.set_icon_name("media-skip-forward-symbolic")
+                self.btn_skip.remove_css_class("destructive-action")
                 self.btn_skip.set_sensitive(True)
-                
-            self.btn_skip.set_icon_name("media-skip-forward-symbolic")
             
             # Color
             self.progress_bar.remove_css_class("short-break-state")
