@@ -203,6 +203,9 @@ class PlumbPreferencesWindow(Adw.PreferencesWindow):
 
         notif_page.add(overlay_group)
         self.add(notif_page)
+        
+        self._build_projects_page()
+        self._build_blocker_page()
 
     def _create_spin_row(
         self, title_text, subtitle_text, min_val, max_val, default_val, callback
@@ -355,8 +358,151 @@ class PlumbPreferencesWindow(Adw.PreferencesWindow):
             self.timer.lock_delay = selected_str
             db.set_setting("lock_delay", selected_str)
 
-    def _on_reopen_delay_changed(self, combo, param):
-        if self.timer:
-            selected_str = self.reopen_model.get_string(combo.get_selected())
-            self.timer.reopen_delay = selected_str
-            db.set_setting("reopen_delay", selected_str)
+    def _on_reopen_delay_changed(self, dropdown, param):
+        selected = dropdown.get_selected()
+        db.set_setting("reopen_delay", selected)
+
+    def _build_projects_page(self):
+        projects_page = Adw.PreferencesPage(
+            title="Projects", icon_name="folder-symbolic"
+        )
+        self.add(projects_page)
+        
+        group = Adw.PreferencesGroup(
+            title="Manage Projects",
+            description="Add or remove projects from the main dropdown."
+        )
+        projects_page.add(group)
+        
+        add_row = Adw.ActionRow(title="Create New Project")
+        self.new_project_entry = Gtk.Entry()
+        self.new_project_entry.set_placeholder_text("Project Name")
+        self.new_project_entry.set_valign(Gtk.Align.CENTER)
+        
+        add_btn = Gtk.Button(label="Add")
+        add_btn.set_valign(Gtk.Align.CENTER)
+        add_btn.add_css_class("suggested-action")
+        add_btn.connect("clicked", self._on_add_project)
+        
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        box.append(self.new_project_entry)
+        box.append(add_btn)
+        
+        add_row.add_suffix(box)
+        group.add(add_row)
+        
+        self.projects_list_group = Adw.PreferencesGroup(title="Existing Projects")
+        projects_page.add(self.projects_list_group)
+        self._project_rows = []
+        
+        self._refresh_projects_list()
+
+    def _refresh_projects_list(self):
+        for row in self._project_rows:
+            self.projects_list_group.remove(row)
+        self._project_rows = []
+            
+        for p_id, name in db.get_projects():
+            row = Adw.ActionRow(title=name)
+            if p_id != 1:  # Default Project
+                del_btn = Gtk.Button(icon_name="user-trash-symbolic")
+                del_btn.set_valign(Gtk.Align.CENTER)
+                del_btn.add_css_class("destructive-action")
+                del_btn.connect("clicked", self._create_delete_cb(p_id, row, is_project=True))
+                row.add_suffix(del_btn)
+            self.projects_list_group.add(row)
+            self._project_rows.append(row)
+
+    def _on_add_project(self, btn):
+        name = self.new_project_entry.get_text().strip()
+        if not name:
+            return
+            
+        p_id = db.add_project(name)
+        if p_id:
+            self.new_project_entry.set_text("")
+            self._refresh_projects_list()
+            main_win = self.get_transient_for()
+            if main_win and hasattr(main_win, "_load_projects"):
+                main_win._load_projects()
+        else:
+            toast = Adw.Toast.new("Project already exists")
+            self.add_toast(toast)
+
+    def _create_delete_cb(self, item_id, row, is_project=True):
+        def on_delete(btn):
+            if is_project:
+                db.delete_project(item_id)
+                self.projects_list_group.remove(row)
+                self._project_rows.remove(row)
+                main_win = self.get_transient_for()
+                if main_win and hasattr(main_win, "_load_projects"):
+                    main_win._load_projects()
+            else:
+                db.remove_website(item_id)
+                self.websites_list_group.remove(row)
+                self._website_rows.remove(row)
+        return on_delete
+
+    def _build_blocker_page(self):
+        blocker_page = Adw.PreferencesPage(
+            title="Web Blocker", icon_name="network-workgroup-symbolic"
+        )
+        self.add(blocker_page)
+        
+        group = Adw.PreferencesGroup(
+            title="Blocked Websites",
+            description="Domains to block during Ironclad Mode (e.g. twitter.com)"
+        )
+        blocker_page.add(group)
+        
+        add_row = Adw.ActionRow(title="Add Website")
+        self.new_website_entry = Gtk.Entry()
+        self.new_website_entry.set_placeholder_text("example.com")
+        self.new_website_entry.set_valign(Gtk.Align.CENTER)
+        
+        add_btn = Gtk.Button(label="Block")
+        add_btn.set_valign(Gtk.Align.CENTER)
+        add_btn.add_css_class("suggested-action")
+        add_btn.connect("clicked", self._on_add_website)
+        
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        box.append(self.new_website_entry)
+        box.append(add_btn)
+        
+        add_row.add_suffix(box)
+        group.add(add_row)
+        
+        self.websites_list_group = Adw.PreferencesGroup()
+        blocker_page.add(self.websites_list_group)
+        self._website_rows = []
+        
+        self._refresh_websites_list()
+
+    def _refresh_websites_list(self):
+        for row in self._website_rows:
+            self.websites_list_group.remove(row)
+        self._website_rows = []
+            
+        for w_id, domain in db.get_websites():
+            row = Adw.ActionRow(title=domain)
+            del_btn = Gtk.Button(icon_name="user-trash-symbolic")
+            del_btn.set_valign(Gtk.Align.CENTER)
+            del_btn.add_css_class("destructive-action")
+            del_btn.connect("clicked", self._create_delete_cb(w_id, row, is_project=False))
+            row.add_suffix(del_btn)
+            self.websites_list_group.add(row)
+            self._website_rows.append(row)
+
+    def _on_add_website(self, btn):
+        domain = self.new_website_entry.get_text().strip()
+        if not domain:
+            return
+            
+        w_id = db.add_website(domain)
+        if w_id:
+            self.new_website_entry.set_text("")
+            self._refresh_websites_list()
+        else:
+            toast = Adw.Toast.new("Website already in list")
+            self.add_toast(toast)
