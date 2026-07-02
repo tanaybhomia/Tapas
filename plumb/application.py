@@ -178,4 +178,9 @@ class PlumbApplication(Adw.Application):
                 return True
 
             win.connect("close-request", _on_window_close)
+            
+        if hasattr(win, "main_window"):
+            win = win.main_window
+            
+        win.set_visible(True)
         win.present()

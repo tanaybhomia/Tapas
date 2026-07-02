@@ -2,7 +2,7 @@
 
 /* Window background transition */
 window {
-    transition: background-color 1.0s ease-in-out;
+    transition: background-color 0.3s ease-in-out;
 }
 
 /* Make the progress bar extra bold and visually appealing */
@@ -163,10 +163,19 @@ button.compact-btn:hover {
     background-color: rgba(230, 74, 25, 0.30);
 }
 
-.ironclad-theme.focus-window {
+window.ironclad-theme {
     background-color: #1a1a1c;
+    color: white;
 }
 
-.ironclad-theme.compact-window {
+window.ironclad-theme label,
+window.ironclad-theme image,
+window.ironclad-theme .title-1,
+window.ironclad-theme .title-4,
+window.ironclad-theme .cycle-indicator {
+    color: white;
+}
+
+window.ironclad-theme.compact-window {
     background-color: #121213;
 }

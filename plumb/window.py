@@ -426,18 +426,19 @@ class PlumbWindow(Adw.ApplicationWindow):
             self.project_dropdown.add_css_class("pill")
 
         if is_running:
+            self.btn_ironclad.set_sensitive(False)
             if self.is_ironclad and self.timer.state == "Focus":
                 self.play_pause_btn.set_icon_name("security-high-symbolic")
                 self.play_pause_btn.set_sensitive(False)
                 
-                self.break_btn.set_icon_name("process-stop-symbolic")
+                self.break_btn.set_label("Give Up")
                 self.break_btn.add_css_class("destructive-action")
                 self.break_btn.set_sensitive(True)
             else:
                 self.play_pause_btn.set_icon_name("media-playback-pause-symbolic")
                 self.play_pause_btn.set_sensitive(True)
                 
-                self.break_btn.set_icon_name("media-skip-forward-symbolic")
+                self.break_btn.set_label("Skip")
                 self.break_btn.remove_css_class("destructive-action")
                 self.break_btn.set_sensitive(False)
                 
@@ -449,10 +450,11 @@ class PlumbWindow(Adw.ApplicationWindow):
             ):
                 self._show_overlays()
         else:
+            self.btn_ironclad.set_sensitive(True)
             self.play_pause_btn.set_icon_name("media-playback-start-symbolic")
             self.play_pause_btn.set_sensitive(True)
             self.restart_btn.set_sensitive(True)
-            self.break_btn.set_icon_name("media-skip-forward-symbolic")
+            self.break_btn.set_label("Skip")
             self.break_btn.remove_css_class("destructive-action")
             self.break_btn.set_sensitive(True)
 
@@ -489,7 +491,7 @@ class PlumbWindow(Adw.ApplicationWindow):
             def on_response(dialog, response):
                 if response == "give_up":
                     self.timer.pause()
-                    self.timer.reset()
+                    self.timer.next_state()
                     self._set_running_ui_state(False)
                     self._update_time_display()
             dialog.connect("response", on_response)
@@ -529,7 +531,7 @@ class PlumbWindow(Adw.ApplicationWindow):
         time_str = f"{time_left // 60:02d}:{time_left % 60:02d}"
         for o in self._overlays:
             if o.get_visible():
-                o.update_time_label(time_str)
+                o.update_time(time_str)
                 
         if hasattr(self, 'compact_window') and self.compact_window.get_visible():
             self.compact_window.update_display()
